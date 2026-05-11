@@ -166,8 +166,8 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 sm:gap-4 border-b border-[#6B0000] bg-[#8B0000] px-4 lg:px-6 shrink-0">
-      {/* Logo for mobile - only shows on mobile since sidebar is hidden */}
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[#6B0000] bg-[#8B0000] px-4 lg:px-6 shrink-0">
+      {/* Left section - Logo for mobile */}
       <div className="flex items-center gap-2 md:hidden shrink-0">
         <div className="bg-white rounded-md p-1">
           <Image 
@@ -184,21 +184,18 @@ export function Header() {
         </div>
       </div>
 
-      {/* Search - hidden on mobile */}
-      <div className="hidden md:block w-full max-w-md">
-        <div className="relative">
+      {/* Center section - Search bar */}
+      <div className="hidden md:flex items-center flex-1 max-w-md">
+        <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
           <Input
             placeholder="Search schedules, faculty, rooms..."
-            className="pl-10 h-9 bg-white/15 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 focus:border-white/40 rounded-lg"
+            className="pl-10 h-9 bg-white/15 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 focus:border-white/40 rounded-lg w-full"
           />
         </div>
       </div>
 
-      {/* Spacer to push actions to the right */}
-      <div className="flex-1" />
-
-      {/* Right side actions */}
+      {/* Right section - Actions */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Theme Toggle */}
         {mounted && (
