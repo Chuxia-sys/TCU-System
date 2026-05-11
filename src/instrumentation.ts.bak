@@ -1,0 +1,31 @@
+// =============================================================
+// TCU Scheduling System - Server Instrumentation
+// Runs on server startup to validate critical services
+// =============================================================
+
+export async function register() {
+  // Only run on server side
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    console.log('[Startup] TCU Scheduling System initializing...');
+    console.log('[Startup] Database: Firebase Firestore (REST API adapter)');
+    console.log('[Startup] SQLite/Prisma is NOT used at runtime');
+    
+    // Validate Firestore connection
+    try {
+      const { validateFirestoreConnection } = await import('@/lib/db');
+      const result = await validateFirestoreConnection();
+      
+      if (result.connected) {
+        console.log(`[Startup] ✅ Firestore connected (project: ${result.project})`);
+      } else {
+        console.error(`[Startup] ❌ Firestore connection FAILED (project: ${result.project})`);
+        console.error(`[Startup] Error: ${result.error}`);
+        console.error('[Startup] Check FIREBASE_SERVICE_EMAIL and FIREBASE_SERVICE_PASSWORD in .env');
+      }
+    } catch (error) {
+      console.error('[Startup] ❌ Firestore validation error:', error);
+    }
+    
+    console.log('[Startup] TCU Scheduling System ready');
+  }
+}

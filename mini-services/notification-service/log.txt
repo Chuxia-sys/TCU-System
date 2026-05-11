@@ -1,0 +1,6 @@
+[NotificationService] WebSocket server running on port 3003
+[NotificationService] WebSocket server running on port 3003
+[NotificationService] WebSocket server running on port 3003
+[NotificationService] WebSocket server running on port 3003
+[NotificationService] WebSocket server running on port 3003
+[NotificationService] WebSocket server running on port 3003
