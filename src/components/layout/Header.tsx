@@ -168,29 +168,29 @@ export function Header() {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[#6B0000] bg-[#8B0000] px-4 lg:px-6 shrink-0">
       {/* Left section - Logo for mobile */}
-      <div className="flex items-center gap-2 md:hidden shrink-0">
-        <div className="bg-white rounded-md p-1">
+      <div className="flex items-center gap-3 md:hidden shrink-0">
+        <div className="bg-white rounded-md p-1.5 shrink-0">
           <Image 
             src="/tcu-logo.png" 
             alt="TCU Logo" 
-            width={28} 
-            height={28}
-            className="object-contain"
+            width={32} 
+            height={32}
+            className="object-contain shrink-0"
           />
         </div>
-        <div className="flex flex-col">
+        <div className="flex flex-col shrink-0">
           <span className="font-bold text-sm text-white leading-none">TCU</span>
           <span className="text-[9px] text-white/60 font-medium leading-none mt-0.5">Scheduling System</span>
         </div>
       </div>
 
       {/* Center section - Search bar */}
-      <div className="hidden md:flex items-center flex-1 max-w-md">
-        <div className="relative w-full">
+      <div className="hidden md:flex items-center flex-1 max-w-md shrink-0">
+        <div className="relative w-full flex items-center">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
           <Input
             placeholder="Search schedules, faculty, rooms..."
-            className="pl-10 h-9 bg-white/15 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 focus:border-white/40 rounded-lg w-full"
+            className="pl-10 h-10 bg-white/15 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 focus:border-white/40 rounded-lg w-full"
           />
         </div>
       </div>
