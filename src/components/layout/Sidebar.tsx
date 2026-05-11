@@ -90,8 +90,8 @@ export function Sidebar() {
       >
         {/* Logo - seamless with topbar, no border on right or bottom */}
         <div className={cn(
-          "flex items-center bg-[#8B0000] border-b border-[#6B0000] shrink-0",
-          sidebarCollapsed ? "flex-col h-auto py-3 px-2 gap-2" : "flex-row h-16 gap-2 px-4"
+          "flex items-center bg-[#8B0000] border-b border-[#6B0000] shrink-0 h-16",
+          sidebarCollapsed ? "justify-between px-2" : "gap-2 px-4"
         )}>
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -115,8 +115,8 @@ export function Sidebar() {
               <Image 
                 src="/tcu-logo.png" 
                 alt="TCU Logo" 
-                width={28} 
-                height={28}
+                width={24} 
+                height={24}
                 className="object-contain"
               />
             </div>
@@ -125,10 +125,7 @@ export function Sidebar() {
             variant="ghost"
             size="icon"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className={cn(
-              "h-9 w-9 text-white/80 hover:text-white hover:bg-white/15 shrink-0",
-              !sidebarCollapsed && ""
-            )}
+            className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/15 shrink-0"
           >
             {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
