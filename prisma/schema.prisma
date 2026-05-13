@@ -1,0 +1,261 @@
+// =============================================================
+// TCU Scheduling System - Prisma Schema (NO-OP)
+// =============================================================
+// IMPORTANT: This project uses Firebase Firestore as its database,
+// NOT SQLite or any Prisma-supported database.
+//
+// All database operations go through the custom Firestore REST API
+// adapter in src/lib/db.ts, which provides a Prisma-compatible API.
+//
+// This schema exists only as documentation of the data model.
+// Prisma Client is NEVER generated or used at runtime.
+// The DATABASE_URL in .env points to /dev/null as a placeholder.
+//
+// To add/modify models, update BOTH:
+//   1. This schema (for documentation/reference)
+//   2. src/lib/db.ts (the actual Firestore adapter with model definitions)
+// =============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User roles: admin, department_head, faculty
+model User {
+  id             String             @id @default(cuid())
+  uid            String             @unique
+  name           String
+  email          String             @unique
+  password       String
+  role           String             @default("faculty")
+  departmentId   String?
+  contractType   String             @default("full-time")
+  maxUnits       Int                @default(24)
+  specialization String             @default("[]")
+  image          String?
+  phone          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  department     Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  schedules      Schedule[]
+  preferences    FacultyPreference?
+  notifications  Notification[]
+  scheduleLogs   ScheduleLog[]
+  auditLogs      AuditLog[]
+  scheduleResponses ScheduleResponse[]
+
+  @@index([email])
+  @@index([role])
+  @@index([departmentId])
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String?
+  college   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  subjects  Subject[]
+  sections  Section[]
+}
+
+model Subject {
+  id                     String   @id @default(cuid())
+  subjectCode            String   @unique
+  subjectName            String
+  description            String?
+  units                  Int
+  departmentId           String
+  requiredSpecialization String   @default("[]")
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  department             Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  schedules              Schedule[]
+
+  @@index([departmentId])
+}
+
+model Room {
+  id         String   @id @default(cuid())
+  roomName   String   @unique
+  roomCode   String?
+  capacity   Int
+  equipment  String   @default("[]")
+  building   String
+  floor      Int?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  schedules  Schedule[]
+}
+
+model Section {
+  id            String   @id @default(cuid())
+  sectionName   String   @unique
+  sectionCode   String?
+  yearLevel     Int
+  departmentId  String
+  studentCount  Int
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  department    Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  schedules     Schedule[]
+
+  @@index([departmentId])
+}
+
+model Schedule {
+  id           String   @id @default(cuid())
+  subjectId    String
+  facultyId    String
+  sectionId    String
+  roomId       String
+  day          String
+  startTime    String
+  endTime      String
+  status       String   @default("generated")
+  semester     String?
+  academicYear String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subject      Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty      User     @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  section      Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  room         Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  logs         ScheduleLog[]
+  response     ScheduleResponse?
+
+  @@index([facultyId, day, startTime])
+  @@index([roomId, day, startTime])
+  @@index([sectionId, day, startTime])
+}
+
+model ScheduleResponse {
+  id           String    @id @default(cuid())
+  scheduleId   String    @unique
+  facultyId    String
+  status       String    @default("pending")
+  reason       String?
+  respondedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  schedule     Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  faculty      User     @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  @@index([facultyId])
+  @@index([status])
+}
+
+model FacultyPreference {
+  id                   String   @id @default(cuid())
+  facultyId            String   @unique
+  preferredDays        String   @default("[]")
+  preferredTimeStart   String   @default("08:00")
+  preferredTimeEnd     String   @default("17:00")
+  preferredSubjects    String   @default("[]")
+  unavailableDays      String?
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  faculty              User     @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String
+  title      String
+  message    String
+  type       String   @default("info")
+  read       Boolean  @default(false)
+  actionUrl  String?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model ScheduleLog {
+  id          String   @id @default(cuid())
+  scheduleId  String
+  modifiedBy  String
+  oldValue    String   @default("{}")
+  newValue    String   @default("{}")
+  action      String
+  reason      String?
+  timestamp   DateTime @default(now())
+
+  schedule    Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [modifiedBy], references: [id], onDelete: Cascade)
+
+  @@index([scheduleId])
+  @@index([modifiedBy])
+}
+
+model Conflict {
+  id                  String    @id @default(cuid())
+  type                String
+  scheduleId1         String?
+  scheduleId2         String?
+  description         String
+  severity            String    @default("warning")
+  suggestedResolution String?
+  resolved            Boolean   @default(false)
+  resolvedBy          String?
+  resolvedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  facultyIds          String?
+  subjectId           String?
+  generationId        String?
+
+  @@index([resolved])
+  @@index([type])
+  @@index([generationId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String?
+  entityId  String?
+  details   String?  @default("{}")
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  category    String   @default("general")
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+}
