@@ -1,28 +1,32 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { AppShell } from '@/components/layout/AppShell';
-import { LoginPage } from '@/components/auth/LoginPage';
-import { DashboardView } from '@/components/dashboard/DashboardView';
-import { CalendarView } from '@/components/calendar/CalendarView';
-import { FacultyView } from '@/components/tables/FacultyView';
-import { SubjectsView } from '@/components/tables/SubjectsView';
-import { RoomsView } from '@/components/tables/RoomsView';
-import { SectionsView } from '@/components/tables/SectionsView';
-import { DepartmentsView } from '@/components/tables/DepartmentsView';
-import { SchedulesView } from '@/components/tables/SchedulesView';
-import { UsersView } from '@/components/tables/UsersView';
-import { ConflictsView } from '@/components/tables/ConflictView';
-import { NotificationsView } from '@/components/tables/NotificationsView';
-import { ProfileView } from '@/components/tables/ProfileView';
-import { PreferencesView } from '@/components/tables/PreferencesView';
-import { ReportsView } from '@/components/tables/ReportsView';
-import { SettingsView } from '@/components/tables/SettingsView';
-import { ScheduleResponsesView } from '@/components/responses/ScheduleResponsesView';
-import { MyScheduleResponsesView } from '@/components/responses/MyScheduleResponsesView';
+import dynamic from 'next/dynamic';
 import { useAppStore, type ViewMode } from '@/store';
 import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
+
+// Lazy-load all views to reduce initial compilation memory footprint.
+// Only the currently needed view is compiled, preventing OOM crashes.
+const AppShell = dynamic(() => import('@/components/layout/AppShell').then(m => ({ default: m.AppShell })), { ssr: false });
+const LoginPage = dynamic(() => import('@/components/auth/LoginPage').then(m => ({ default: m.LoginPage })), { ssr: false });
+const DashboardView = dynamic(() => import('@/components/dashboard/DashboardView').then(m => ({ default: m.DashboardView })), { ssr: false });
+const CalendarView = dynamic(() => import('@/components/calendar/CalendarView').then(m => ({ default: m.CalendarView })), { ssr: false });
+const FacultyView = dynamic(() => import('@/components/tables/FacultyView').then(m => ({ default: m.FacultyView })), { ssr: false });
+const SubjectsView = dynamic(() => import('@/components/tables/SubjectsView').then(m => ({ default: m.SubjectsView })), { ssr: false });
+const RoomsView = dynamic(() => import('@/components/tables/RoomsView').then(m => ({ default: m.RoomsView })), { ssr: false });
+const SectionsView = dynamic(() => import('@/components/tables/SectionsView').then(m => ({ default: m.SectionsView })), { ssr: false });
+const DepartmentsView = dynamic(() => import('@/components/tables/DepartmentsView').then(m => ({ default: m.DepartmentsView })), { ssr: false });
+const SchedulesView = dynamic(() => import('@/components/tables/SchedulesView').then(m => ({ default: m.SchedulesView })), { ssr: false });
+const UsersView = dynamic(() => import('@/components/tables/UsersView').then(m => ({ default: m.UsersView })), { ssr: false });
+const ConflictsView = dynamic(() => import('@/components/tables/ConflictView').then(m => ({ default: m.ConflictsView })), { ssr: false });
+const NotificationsView = dynamic(() => import('@/components/tables/NotificationsView').then(m => ({ default: m.NotificationsView })), { ssr: false });
+const ProfileView = dynamic(() => import('@/components/tables/ProfileView').then(m => ({ default: m.ProfileView })), { ssr: false });
+const PreferencesView = dynamic(() => import('@/components/tables/PreferencesView').then(m => ({ default: m.PreferencesView })), { ssr: false });
+const ReportsView = dynamic(() => import('@/components/tables/ReportsView').then(m => ({ default: m.ReportsView })), { ssr: false });
+const SettingsView = dynamic(() => import('@/components/tables/SettingsView').then(m => ({ default: m.SettingsView })), { ssr: false });
+const ScheduleResponsesView = dynamic(() => import('@/components/responses/ScheduleResponsesView').then(m => ({ default: m.ScheduleResponsesView })), { ssr: false });
+const MyScheduleResponsesView = dynamic(() => import('@/components/responses/MyScheduleResponsesView').then(m => ({ default: m.MyScheduleResponsesView })), { ssr: false });
 
 // Define which roles can access which views
 const viewPermissions: Record<ViewMode, string[]> = {

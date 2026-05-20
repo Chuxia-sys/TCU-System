@@ -22,6 +22,11 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false,
   serverExternalPackages: [],
+  // IMPORTANT: Do NOT set allowedDevOrigins here.
+  // When this field is defined, Next.js switches from "warn" mode to "block"
+  // mode for cross-origin requests. The preview panel uses dynamic subdomains
+  // (*.space-z.ai) that can't be statically listed. Leaving this undefined
+  // keeps the warn-only behavior, which allows preview to work correctly.
 };
 
 export default nextConfig;
