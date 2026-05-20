@@ -5,16 +5,29 @@ import bcrypt from 'bcryptjs';
 
 export async function POST() {
   try {
-    // Require admin authentication to re-seed the database
-    const authResult = await requireAdmin();
-    if ('error' in authResult) {
-      return NextResponse.json(
-        { error: authResult.error.error },
-        { status: authResult.error.status }
-      );
-    }
+    // ── Auth check for re-seeding ──────────────────────────────
+    // First-time setup: if no admin user exists at all, allow
+    // unauthenticated seeding (chicken-and-egg: you can't log in
+    // as admin to seed if no admin exists yet).
+    // Re-seeding (admin already exists): require admin auth.
+    const anyAdmin = await db.user.findFirst({
+      where: { role: 'admin' },
+    });
 
-    console.log('🌱 Starting database seed...');
+    if (anyAdmin) {
+      // Admin exists — require authentication to re-seed
+      const authResult = await requireAdmin();
+      if ('error' in authResult) {
+        return NextResponse.json(
+          { error: authResult.error.error },
+          { status: authResult.error.status }
+        );
+      }
+      console.log('🌱 Re-seeding database (admin authenticated)...');
+    } else {
+      // No admin exists — first-time setup, allow without auth
+      console.log('🌱 First-time setup: seeding database (no admin exists yet)...');
+    }
 
     // Hash password for all demo accounts
     const hashedPassword = await bcrypt.hash('password123', 10);
@@ -134,7 +147,7 @@ export async function POST() {
     const admin = await upsertUser({
       uid: 'admin-001',
       name: 'System Administrator',
-      email: 'admin@fepc.edu.ph',
+      email: 'admin@tcu.edu.ph',
       password: hashedPassword,
       role: 'admin',
       maxUnits: 24,
@@ -423,7 +436,7 @@ export async function POST() {
         subjects: subjects.length,
         sections: sections.length,
         demoCredentials: {
-          admin: 'admin@fepc.edu.ph',
+          admin: 'admin@tcu.edu.ph',
           deptHead: 'head.cs@fepc.edu.ph',
           faculty: 'faculty1@fepc.edu.ph',
           password: 'password123',
@@ -441,9 +454,9 @@ export async function POST() {
 
 export async function GET() {
   try {
-    // Check if database is seeded (check for admin user)
-    const adminExists = await db.user.findUnique({
-      where: { email: 'admin@fepc.edu.ph' },
+    // Check if database is seeded (check for ANY admin user, not just a specific email)
+    const adminExists = await db.user.findFirst({
+      where: { role: 'admin' },
     });
 
     return NextResponse.json({
