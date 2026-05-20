@@ -93,3 +93,34 @@ Stage Summary:
 - The Prisma schema datasource is hardcoded to /dev/null, ignoring the DATABASE_URL env var entirely
 - No SQLite database file exists on disk
 - All database operations flow exclusively through Firebase Firestore REST API
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fully remove Prisma/SQLite and use Firebase Firestore as the sole database, then restart workspace
+
+Work Log:
+- Replaced @prisma/client module with a Firestore redirect (node_modules/@prisma/client/index.js)
+- The replacement module re-exports the Firestore db adapter and provides a PrismaClient class that delegates to Firestore
+- Removed @prisma/client and prisma from package.json dependencies
+- Disabled all Prisma CLI scripts (db:push, db:generate, db:migrate, db:reset) with warning messages
+- Added db:validate script that confirms Firestore is the database
+- Deleted SQLite database file (db/custom.db) permanently
+- Deleted node_modules/.prisma/ directory (generated Prisma Client)
+- Deleted prisma CLI binary from node_modules
+- Removed .next cache to force full recompilation
+- Removed redundant src/lib/prisma-adapter.ts (consolidated into @prisma/client replacement)
+- Verified zero @prisma/client imports in src/ — all 28 API routes use @/lib/db (Firestore)
+- Restarted workspace with clean build
+- Health check: healthy, Firestore connected, project: for-commission
+- Departments: 5 loaded from Firestore
+- Seed: already seeded
+- Linter: 0 errors, 1 pre-existing warning
+
+Stage Summary:
+- Prisma and SQLite are completely removed from the project
+- @prisma/client now redirects to Firebase Firestore (safety net for any accidental imports)
+- No SQLite database files exist anywhere on disk
+- All 28 API routes exclusively use the Firestore REST API adapter
+- The system DATABASE_URL (file:/home/z/my-project/db/custom.db) is neutralized at startup
+- Firebase Firestore is the ONLY database — fully operational and healthy
