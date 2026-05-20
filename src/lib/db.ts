@@ -8,8 +8,11 @@
 // - Authentication: API key (direct Firestore access)
 // - Provides: Prisma-compatible API (findUnique, findMany, etc.)
 //
-// Prisma Client is NOT used at runtime. The DATABASE_URL env var
-// is irrelevant to this adapter. All data flows through Firestore.
+// ⚠️  CRITICAL: Prisma Client is NEVER used at runtime.
+//     The system DATABASE_URL env var may point to a SQLite file,
+//     but this adapter always connects to Firebase Firestore.
+//     Any accidental import of @prisma/client will be intercepted
+//     and redirected to this Firestore adapter.
 //
 // To modify the data model, update BOTH:
 //   1. prisma/schema.prisma (documentation only)
@@ -20,6 +23,22 @@ import {
   FIREBASE_PROJECT_ID,
   FIREBASE_API_KEY,
 } from './firebase';
+
+// ============================================================
+// Runtime Guard: Neutralize DATABASE_URL & Block SQLite
+// ============================================================
+// The system environment may set DATABASE_URL to a SQLite path.
+// We override it here to prevent any accidental Prisma/SQLite usage.
+if (typeof process !== 'undefined' && process.env) {
+  const currentUrl = process.env.DATABASE_URL || '';
+  if (currentUrl && !currentUrl.includes('dev/null')) {
+    console.warn(
+      `[DB GUARD] ⚠️ DATABASE_URL was "${currentUrl}" — overriding to /dev/null. ` +
+      `This project uses Firebase Firestore exclusively.`
+    );
+    process.env.DATABASE_URL = 'file:/dev/null';
+  }
+}
 
 // ============================================================
 // Firestore REST API Client
