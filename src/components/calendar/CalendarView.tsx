@@ -330,7 +330,7 @@ function ScheduleCard({
           </div>
         </motion.button>
       </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs p-2 z-50" sideOffset={6}>
+      <TooltipContent side="top" className="max-w-xs p-3 z-50 rounded-lg" sideOffset={8}>
         <div className="space-y-1 text-xs">
           <div className="font-bold">{getSubjectLabel(schedule)} — {getSubjectName(schedule)}</div>
           <div className="text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{formatTime12Hour(schedule.startTime)} – {formatTime12Hour(schedule.endTime)}</div>
@@ -1023,10 +1023,10 @@ export function CalendarView() {
                     className={cn(
                       'rounded-xl border p-3.5 cursor-pointer transition-all duration-200',
                       'hover:shadow-md active:scale-[0.98]',
+                      'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]',
                       'border-l-[4px]',
                       color.bg,
                       color.border,
-                      color.hoverBg,
                       isConflict && 'ring-2 ring-red-400 dark:ring-red-500',
                     )}
                     onClick={() => setSelectedSchedule(schedule)}
