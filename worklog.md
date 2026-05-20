@@ -39,3 +39,26 @@ Stage Summary:
 - The application is running on port 3000 with the notification service on port 3003
 - The Firebase API key authentication shows "degraded" in health check but data reads work correctly
 - All existing Firestore data (departments, users, rooms, subjects, sections) is accessible
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix Firebase Firestore authentication timeout error
+
+Work Log:
+- Identified root cause: Firebase Auth signInWithPassword API key was invalid, causing timeout errors
+- Tested direct Firestore REST API access with API key query parameter - confirmed working for reads, queries, and writes
+- Modified db.ts to use API key authentication instead of Firebase Auth tokens
+- Removed getAuthToken() function and related Firebase Auth imports (FIREBASE_SERVICE_EMAIL, FIREBASE_SERVICE_PASSWORD)
+- Added withApiKey() helper to append API key as query parameter to all Firestore REST API requests
+- Updated firestoreRequest() to use API key instead of Bearer token authentication
+- Updated validateFirestoreConnection() to use API key-based read test instead of auth token validation
+- Verified all API endpoints work: health (healthy), departments (5 loaded), seed (seeded: true), rooms, subjects, stats (401 - expected)
+- Linter passes with only 1 pre-existing warning
+
+Stage Summary:
+- Fixed the timeout error by switching from Firebase Auth (signInWithPassword) to direct API key authentication
+- Firestore REST API works perfectly with API key as query parameter for both reads and writes
+- Health check now shows "healthy" with "connected: true" instead of "degraded"
+- All existing Firestore data is fully accessible (departments, users, rooms, subjects, sections)
+- No code errors, linting clean

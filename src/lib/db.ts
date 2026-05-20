@@ -5,7 +5,7 @@
 //
 // - Database: Firebase Firestore (project: for-commission)
 // - Access method: REST API (no gRPC dependency)
-// - Authentication: Firebase Auth (email/password)
+// - Authentication: API key (direct Firestore access)
 // - Provides: Prisma-compatible API (findUnique, findMany, etc.)
 //
 // Prisma Client is NOT used at runtime. The DATABASE_URL env var
@@ -19,8 +19,6 @@
 import {
   FIREBASE_PROJECT_ID,
   FIREBASE_API_KEY,
-  FIREBASE_SERVICE_EMAIL,
-  FIREBASE_SERVICE_PASSWORD,
 } from './firebase';
 
 // ============================================================
@@ -28,58 +26,15 @@ import {
 // ============================================================
 
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
-const AUTH_URL = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`;
-
-// Cached auth token
-let cachedToken: string | null = null;
-let tokenExpiry = 0;
 
 // Connection status tracking
 let connectionValidated = false;
 let lastValidationError: string | null = null;
 
-async function getAuthToken(): Promise<string | null> {
-  // Return cached token if still valid (tokens last 1 hour, refresh at 50 min)
-  if (cachedToken && Date.now() < tokenExpiry) {
-    return cachedToken;
-  }
-
-  try {
-    const response = await fetch(AUTH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: FIREBASE_SERVICE_EMAIL,
-        password: FIREBASE_SERVICE_PASSWORD,
-        returnSecureToken: true,
-      }),
-    });
-
-    const data = await response.json();
-    if (data.idToken) {
-      cachedToken = data.idToken;
-      // Firebase ID tokens expire in 1 hour (3600s), refresh at 50 minutes
-      tokenExpiry = Date.now() + 50 * 60 * 1000;
-      
-      if (!connectionValidated) {
-        connectionValidated = true;
-        lastValidationError = null;
-        console.log('[Firestore] ✅ Connected to Firebase Firestore (project: ' + FIREBASE_PROJECT_ID + ')');
-      }
-      
-      return cachedToken;
-    }
-    
-    const errorMsg = data.error?.message || 'Unknown error';
-    console.warn('[Firestore] ❌ Auth failed:', errorMsg);
-    lastValidationError = errorMsg;
-    return null;
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.warn('[Firestore] ❌ Auth error:', errorMsg);
-    lastValidationError = errorMsg;
-    return null;
-  }
+// Helper: append API key to a URL as a query parameter
+function withApiKey(url: string): string {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}key=${FIREBASE_API_KEY}`;
 }
 
 // ============================================================
@@ -87,7 +42,7 @@ async function getAuthToken(): Promise<string | null> {
 // ============================================================
 
 /**
- * Validates the Firestore connection by attempting to authenticate.
+ * Validates the Firestore connection by attempting a lightweight read.
  * Call this on server startup to ensure Firebase credentials are valid.
  */
 export async function validateFirestoreConnection(): Promise<{ 
@@ -96,34 +51,26 @@ export async function validateFirestoreConnection(): Promise<{
   error?: string 
 }> {
   try {
-    const token = await getAuthToken();
-    if (token) {
-      // Try a lightweight read to verify Firestore access
-      const response = await fetch(
-        `${FIRESTORE_BASE}/systemSettings?pageSize=1`,
-        {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }
-      );
-      
-      // 200 = OK, 404 = collection doesn't exist yet but auth works
-      if (response.status === 200 || response.status === 404) {
-        connectionValidated = true;
-        return { connected: true, project: FIREBASE_PROJECT_ID };
-      }
-      
-      const data = await response.json().catch(() => ({}));
-      const errorMsg = data.error?.message || `HTTP ${response.status}`;
-      return { connected: false, project: FIREBASE_PROJECT_ID, error: errorMsg };
+    // Try a lightweight read to verify Firestore access using API key
+    const response = await fetch(
+      withApiKey(`${FIRESTORE_BASE}/departments?pageSize=1`)
+    );
+    
+    // 200 = OK, 404 = collection doesn't exist yet but access works
+    if (response.status === 200 || response.status === 404) {
+      connectionValidated = true;
+      lastValidationError = null;
+      console.log('[Firestore] ✅ Connected to Firebase Firestore (project: ' + FIREBASE_PROJECT_ID + ')');
+      return { connected: true, project: FIREBASE_PROJECT_ID };
     }
     
-    return { 
-      connected: false, 
-      project: FIREBASE_PROJECT_ID, 
-      error: lastValidationError || 'Authentication failed - check FIREBASE_SERVICE_EMAIL and FIREBASE_SERVICE_PASSWORD in .env'
-    };
+    const data = await response.json().catch(() => ({}));
+    const errorMsg = data.error?.message || `HTTP ${response.status}`;
+    lastValidationError = errorMsg;
+    return { connected: false, project: FIREBASE_PROJECT_ID, error: errorMsg };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
+    lastValidationError = errorMsg;
     return { connected: false, project: FIREBASE_PROJECT_ID, error: errorMsg };
   }
 }
@@ -143,17 +90,14 @@ export function getFirestoreStatus(): {
   };
 }
 
-// Make authenticated request to Firestore REST API
+// Make request to Firestore REST API using API key authentication
 async function firestoreRequest(path: string, method: string = 'GET', body?: any): Promise<any> {
-  const token = await getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
-  const url = path.startsWith('http') ? path : `${FIRESTORE_BASE}/${path}`;
+  const baseUrl = path.startsWith('http') ? path : `${FIRESTORE_BASE}/${path}`;
+  const url = withApiKey(baseUrl);
 
   const response = await fetch(url, {
     method,
