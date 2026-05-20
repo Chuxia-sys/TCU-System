@@ -391,28 +391,26 @@ function InfoTile({ icon, label, value, className }: { icon: React.ReactNode; la
   return (
     <div className={cn(
       'flex items-start gap-3 rounded-xl p-3',
-      'bg-[#f5f5f5] dark:bg-[#27272A] border border-gray-200/60 dark:border-white/[0.08]',
+      'bg-[#F3F4F6] dark:bg-[#2A2A2E] border border-gray-200/60 dark:border-white/[0.08]',
       'transition-colors duration-200',
       className,
     )}>
-      <div className="text-gray-400 dark:text-[#A1A1AA] mt-0.5 shrink-0">{icon}</div>
+      <div className="text-gray-400 dark:text-[#9CA3AF] mt-0.5 shrink-0">{icon}</div>
       <div className="min-w-0">
-        <p className="text-[10px] text-gray-400 dark:text-[#A1A1AA] uppercase tracking-wider font-semibold">{label}</p>
+        <p className="text-[10px] text-gray-400 dark:text-[#9CA3AF] uppercase tracking-wider font-semibold">{label}</p>
         <p className="text-sm font-semibold truncate text-gray-800 dark:text-white mt-0.5">{value}</p>
       </div>
     </div>
   );
 }
 
-// ─── Quick Info Pill (for header — mode-adaptive) ──────────────────
+// ─── Quick Info Pill (for header — always on red banner) ─────────
 function QuickPill({ icon, children, className }: { icon: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
     <span className={cn(
       'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium',
-      // Light mode: semi-transparent white on red header
+      // Same style in both modes — semi-transparent white on red header
       'bg-white/20 backdrop-blur-sm border border-white/15 text-white/90',
-      // Dark mode: dark surface with subtle gray border
-      'dark:bg-[#27272A] dark:border-white/[0.08] dark:text-white/90 dark:backdrop-blur-none',
       'transition-colors duration-200',
       className,
     )}>
@@ -1106,44 +1104,32 @@ export function CalendarView() {
         </CardContent>
       </Card>
 
-      {/* ── Schedule Detail Dialog (Red Brand Redesign) ──────────────── */}
+      {/* ── Schedule Detail Dialog (Red Brand — Always Red Header) ──── */}
       <Dialog open={!!selectedSchedule} onOpenChange={(open) => !open && setSelectedSchedule(null)}>
         {selectedSchedule && (() => {
           const isConflict = selectedSchedule.status === 'conflict';
           const isApproved = selectedSchedule.status === 'approved';
-
-          // Status icon: mode-adaptive colors
-          const statusIcon = isApproved
-            ? <CheckCircle className="h-3 w-3 text-white dark:text-[#FCA5A5]" />
-            : isConflict
-              ? <AlertTriangle className="h-3 w-3 text-white dark:text-red-400" />
-              : <Clock className="h-3 w-3 text-white/70 dark:text-white/60" />;
 
           return (
             <DialogContent
               className="sm:max-w-lg !p-0 !gap-0 !overflow-hidden !rounded-2xl !border-0 !shadow-none dark:!shadow-none"
               showCloseButton={false}
             >
-              {/* ── Header ──────────────────────────────────────────── */}
-              {/* Light: deep red banner (#B91C1C) */}
-              {/* Dark: dark surface (#1C1C1E), no red fill */}
+              {/* ── Header — ALWAYS RED in both modes ─────────────── */}
               <div className={cn(
                 'relative px-5 pt-5 pb-4',
-                'bg-[#B91C1C] dark:bg-[#1C1C1E]',
+                // Light: #C0392B, Dark: #9B2218 (darker red, not dark surface)
+                'bg-[#C0392B] dark:bg-[#9B2218]',
                 'transition-colors duration-300',
               )}>
-                {/* Close button */}
+                {/* Close button — frosted white pill on red */}
                 <button
                   onClick={() => setSelectedSchedule(null)}
                   className={cn(
                     'absolute top-3.5 right-3.5',
                     'flex items-center justify-center h-7 w-7 rounded-full',
-                    // Light: frosted white pill
                     'bg-white/20 backdrop-blur-md border border-white/20',
                     'text-white/80 hover:text-white hover:bg-white/30',
-                    // Dark: dark pill with light icon
-                    'dark:bg-white/[0.08] dark:backdrop-blur-none dark:border-white/[0.08]',
-                    'dark:text-white/60 dark:hover:text-white dark:hover:bg-white/[0.12]',
                     'transition-all duration-200',
                   )}
                 >
@@ -1152,14 +1138,10 @@ export function CalendarView() {
 
                 {/* Icon + Title row */}
                 <div className="flex items-start gap-3.5 pr-8">
-                  {/* Icon container */}
+                  {/* Icon container — semi-transparent white square */}
                   <div className={cn(
                     'w-11 h-11 rounded-xl flex items-center justify-center shrink-0',
-                    // Light: semi-transparent white on red
                     'bg-white/20 backdrop-blur-sm border border-white/15',
-                    // Dark: dark tile
-                    'dark:bg-[#27272A] dark:backdrop-blur-none dark:border-white/[0.08]',
-                    'transition-colors duration-300',
                   )}>
                     <BookOpen className="h-5 w-5 text-white" />
                   </div>
@@ -1167,21 +1149,14 @@ export function CalendarView() {
                     <DialogTitle className="!text-base sm:!text-lg !font-bold !text-white !leading-tight truncate">
                       {selectedSchedule.subject?.subjectName || 'Unknown Subject'}
                     </DialogTitle>
-                    <DialogDescription className={cn(
-                      '!mt-1 !text-xs sm:!text-sm',
-                      // Light: muted white on red
-                      '!text-white/65',
-                      // Dark: muted gray
-                      'dark:!text-[#A1A1AA]',
-                      'transition-colors duration-300',
-                    )}>
+                    <DialogDescription className="!text-white/60 !mt-1 !text-xs sm:!text-sm">
                       {selectedSchedule.subject?.subjectCode}
                       {selectedSchedule.section?.sectionName && ` · ${selectedSchedule.section.sectionName}`}
                     </DialogDescription>
                   </div>
                 </div>
 
-                {/* Quick Info Pills */}
+                {/* Quick Info Pills — same style in both modes (on red header) */}
                 <div className="flex flex-wrap gap-2 mt-3.5">
                   <QuickPill icon={<Clock className="h-3 w-3" />}>
                     {formatTime12Hour(selectedSchedule.startTime)} – {formatTime12Hour(selectedSchedule.endTime)}
@@ -1189,17 +1164,20 @@ export function CalendarView() {
                   <QuickPill icon={<CalendarIcon className="h-3 w-3" />}>
                     {selectedSchedule.day}
                   </QuickPill>
-                  {/* Approved pill: red accent in both modes */}
-                  <QuickPill icon={statusIcon} className={cn(
-                    // Light: solid red bg with white text
-                    isApproved && 'bg-[#B91C1C]/80 border-[#B91C1C]/50 text-white dark:bg-[rgba(185,28,28,0.25)] dark:border-[#F87171] dark:text-[#FCA5A5]',
-                    // Conflict
-                    isConflict && 'bg-red-600/60 border-red-500/40 text-white dark:bg-red-900/30 dark:border-red-800/40 dark:text-red-400',
-                    // Generated
-                    selectedSchedule.status === 'generated' && 'bg-sky-500/20 border-sky-400/25 dark:bg-sky-900/25 dark:border-sky-700/30 dark:text-sky-300',
-                    // Modified
-                    selectedSchedule.status === 'modified' && 'bg-amber-500/20 border-amber-400/25 dark:bg-amber-900/25 dark:border-amber-700/30 dark:text-amber-300',
-                  )}>
+                  {/* Approved pill: red-tinted border to distinguish */}
+                  <QuickPill
+                    icon={<CheckCircle className="h-3 w-3" />}
+                    className={cn(
+                      // Approved: subtle red-tinted border accent
+                      isApproved && 'border-red-300/50 bg-white/25',
+                      // Conflict: stronger red tint
+                      isConflict && 'border-red-300/50 bg-red-400/30',
+                      // Generated
+                      selectedSchedule.status === 'generated' && 'border-sky-300/30',
+                      // Modified
+                      selectedSchedule.status === 'modified' && 'border-amber-300/30',
+                    )}
+                  >
                     {selectedSchedule.status}
                   </QuickPill>
                 </div>
@@ -1208,7 +1186,8 @@ export function CalendarView() {
               {/* ── Body ─────────────────────────────────────────────── */}
               <div className={cn(
                 'px-5 py-4 space-y-3.5',
-                'bg-white dark:bg-[#18181B]',
+                // Light: white, Dark: #1C1C1E
+                'bg-white dark:bg-[#1C1C1E]',
                 'transition-colors duration-300',
               )}>
                 {/* Information Card Grid */}
@@ -1258,7 +1237,7 @@ export function CalendarView() {
 
                 {/* Conflict warning */}
                 {isConflict && (
-                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-red-50 dark:bg-[rgba(185,28,28,0.08)] border border-red-200/60 dark:border-[#F87171]/20">
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-red-50 dark:bg-[rgba(185,28,28,0.08)] border border-red-200/60 dark:border-white/[0.08]">
                     <AlertTriangle className="h-4 w-4 text-red-500 dark:text-red-400 shrink-0 mt-0.5" />
                     <div>
                       <p className="text-sm font-semibold text-red-700 dark:text-red-400">Schedule Conflict</p>
@@ -1274,13 +1253,13 @@ export function CalendarView() {
               <div className={cn(
                 'px-5 py-3.5 flex items-center justify-end gap-2.5',
                 'border-t border-gray-100 dark:border-white/[0.08]',
-                'bg-white dark:bg-[#18181B]',
+                'bg-white dark:bg-[#1C1C1E]',
                 'transition-colors duration-300',
               )}>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-gray-500 dark:text-[#A1A1AA] hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-lg px-4"
+                  className="text-gray-500 dark:text-[#9CA3AF] hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-lg px-4"
                   onClick={() => setSelectedSchedule(null)}
                 >
                   Close
@@ -1290,9 +1269,9 @@ export function CalendarView() {
                   className={cn(
                     'rounded-lg px-5 text-white font-medium',
                     'transition-all duration-200',
-                    // Light: #B91C1C, Dark: #991B1B — red stays consistent
-                    'bg-[#B91C1C] hover:bg-[#991B1B]',
-                    'dark:bg-[#991B1B] dark:hover:bg-[#7F1D1D]',
+                    // Red CTA — same red family as header
+                    'bg-[#C0392B] hover:bg-[#A93226]',
+                    'dark:bg-[#9B2218] dark:hover:bg-[#7E1B12]',
                   )}
                   onClick={() => {
                     setSelectedSchedule(null);
