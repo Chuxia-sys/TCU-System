@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ColumnDef,
   flexRender,
@@ -51,6 +51,19 @@ export function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pageSize, setPageSize] = useState(10);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+
+  // Auto-switch to card view on mobile when card render is available
+  useEffect(() => {
+    if (mobileCardRender) {
+      const mq = window.matchMedia('(max-width: 639px)');
+      const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+        setViewMode(e.matches ? 'cards' : 'table');
+      };
+      handleChange(mq);
+      mq.addEventListener('change', handleChange);
+      return () => mq.removeEventListener('change', handleChange);
+    }
+  }, [mobileCardRender]);
 
   const table = useReactTable({
     data,
@@ -120,7 +133,7 @@ export function DataTable<TData, TValue>({
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="whitespace-nowrap">
+                    <TableHead key={header.id} className="whitespace-nowrap text-xs sm:text-sm">
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
@@ -154,7 +167,7 @@ export function DataTable<TData, TValue>({
 
       {/* Card View (works on all screen sizes) */}
       {mobileCardRender && viewMode === 'cards' && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {table.getRowModel().rows?.length ? (
             table.getRowModel().rows.map((row) => (
               <div key={row.id} className="rounded-lg border bg-card p-4">
@@ -170,8 +183,8 @@ export function DataTable<TData, TValue>({
       )}
 
       {/* Pagination */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-2">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground order-2 sm:order-1">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-1 sm:px-2">
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
           <span className="whitespace-nowrap">
             Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
           </span>
@@ -180,7 +193,7 @@ export function DataTable<TData, TValue>({
             {table.getFilteredRowModel().rows.length} total rows
           </span>
         </div>
-        <div className="flex items-center justify-between sm:justify-end gap-2 order-1 sm:order-2">
+        <div className="flex items-center justify-between sm:justify-end gap-1 sm:gap-2 order-1 sm:order-2">
           <Select
             value={pageSize.toString()}
             onValueChange={(value) => {
@@ -188,7 +201,7 @@ export function DataTable<TData, TValue>({
               table.setPageSize(Number(value));
             }}
           >
-            <SelectTrigger className="w-[100px]">
+            <SelectTrigger className="w-[80px] sm:w-[100px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

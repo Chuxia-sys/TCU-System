@@ -151,8 +151,8 @@ export function DepartmentsView() {
       header: 'Department',
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Building2 className="h-5 w-5 text-primary" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+            <Building2 className="h-4 w-4 text-primary" />
           </div>
           <div>
             <p className="font-medium">{row.original.name}</p>
@@ -173,17 +173,17 @@ export function DepartmentsView() {
       cell: ({ row }) => {
         const count = row.original._count;
         return (
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
+              <Users className="h-3.5 w-3.5" />
               <span>{count?.users || 0}</span>
             </div>
             <div className="flex items-center gap-1">
-              <BookOpen className="h-4 w-4" />
+              <BookOpen className="h-3.5 w-3.5" />
               <span>{count?.subjects || 0}</span>
             </div>
             <div className="flex items-center gap-1">
-              <GraduationCap className="h-4 w-4" />
+              <GraduationCap className="h-3.5 w-3.5" />
               <span>{count?.sections || 0}</span>
             </div>
           </div>
@@ -229,20 +229,20 @@ export function DepartmentsView() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Departments</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Departments</h1>
           <p className="text-muted-foreground">Manage academic departments</p>
         </div>
-        <Button onClick={handleCreate}>
+        <Button onClick={handleCreate} className="h-9">
           <Plus className="mr-2 h-4 w-4" />
           Add Department
         </Button>
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-3 sm:p-6">
           <DataTable
             columns={columns}
             data={departments}
@@ -253,58 +253,58 @@ export function DepartmentsView() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedDept ? 'Edit Department' : 'Add New Department'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Name *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Name *</Label>
+              <div className="space-y-1">
                 <Input
                   value={formData.name as string || ''}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className={formErrors.name ? 'border-destructive' : ''}
+                  className={formErrors.name ? 'border-destructive h-9 text-sm' : 'h-9 text-sm'}
                 />
                 {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Code</Label>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Code</Label>
               <Input
                 value={formData.code as string || ''}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                className="col-span-3"
+                className="h-9 text-sm"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">College *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">College *</Label>
+              <div className="space-y-1">
                 <Input
                   value={formData.college as string || ''}
                   onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-                  className={formErrors.college ? 'border-destructive' : ''}
+                  className={formErrors.college ? 'border-destructive h-9 text-sm' : 'h-9 text-sm'}
                 />
                 {formErrors.college && <p className="text-xs text-destructive">{formErrors.college}</p>}
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving}>{saving ? 'Saving...' : selectedDept ? 'Update' : 'Create'}</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto h-9">Cancel</Button>
+            <Button onClick={handleSubmit} disabled={saving} className="w-full sm:w-auto h-9">{saving ? 'Saving...' : selectedDept ? 'Update' : 'Create'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Delete Department</DialogTitle>
           </DialogHeader>
           <p>Are you sure you want to delete {selectedDept?.name}?</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="w-full sm:w-auto h-9">Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete} className="w-full sm:w-auto h-9">Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

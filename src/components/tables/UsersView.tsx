@@ -35,7 +35,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
   Plus, MoreHorizontal, Pencil, Trash2, UserCog, Shield,
-  Eye, EyeOff, Loader2, Mail, Building2
+  Loader2, AlertTriangle
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { User, Department } from '@/types';
@@ -50,8 +50,8 @@ export function UsersView() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -65,7 +65,6 @@ export function UsersView() {
       ]);
       const usersData = await safeJson(usersRes);
       const deptsData = await safeJson(deptsRes);
-      // Ensure we always set arrays
       setUsers(Array.isArray(usersData) ? usersData : []);
       setDepartments(Array.isArray(deptsData) ? deptsData : []);
     } catch (error) {
@@ -137,14 +136,15 @@ export function UsersView() {
         body: JSON.stringify(formData),
       });
       const data = await safeJson<{ error?: string }>(res);
-      if (data) {
+      if (res.ok) {
         toast.success(selectedUser ? 'User updated' : 'User created');
         setDialogOpen(false);
         fetchData();
       } else {
-        toast.error('Operation failed');
+        toast.error(data?.error || 'Operation failed');
       }
-    } catch {
+    } catch (error) {
+      console.error('Submit error:', error);
       toast.error('Operation failed');
     } finally {
       setSaving(false);
@@ -153,18 +153,23 @@ export function UsersView() {
 
   const confirmDelete = async () => {
     if (!selectedUser) return;
+    setDeleting(true);
     try {
       const res = await fetch(`/api/users/${selectedUser.id}`, { method: 'DELETE' });
-      const data = await safeJson<{ error?: string }>(res);
-      if (data) {
-        toast.success('User deleted');
+      const data = await safeJson<{ success?: boolean; error?: string; message?: string }>(res);
+      if (res.ok && data?.success) {
+        toast.success(data.message || 'User deleted successfully');
         setDeleteDialogOpen(false);
+        setSelectedUser(null);
         fetchData();
       } else {
-        toast.error('Failed to delete user');
+        toast.error(data?.error || 'Failed to delete user');
       }
-    } catch {
-      toast.error('Failed to delete user');
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete user. Network error.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -175,7 +180,7 @@ export function UsersView() {
       faculty: { label: 'Faculty', variant: 'outline' },
     };
     const style = styles[role] || styles.faculty;
-    return <Badge variant={style.variant}>{style.label}</Badge>;
+    return <Badge variant={style.variant} className="text-xs">{style.label}</Badge>;
   };
 
   const columns: ColumnDef<User>[] = [
@@ -185,106 +190,292 @@ export function UsersView() {
       cell: ({ row }) => {
         const user = row.original;
         return (
-          <div className="flex items-center gap-3">
-            <Avatar className="h-9 w-9">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
               <AvatarImage src={user.image || ''} alt={user.name || ''} />
-              <AvatarFallback className="bg-primary/10 text-primary text-sm">
+              <AvatarFallback className="bg-primary/10 text-primary text-xs sm:text-sm">
                 {user.name?.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <p className="font-medium">{user.name}</p>
-              <p className="text-xs text-muted-foreground">{user.email}</p>
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">{user.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>
         );
       },
     },
-    { accessorKey: 'role', header: 'Role', cell: ({ row }) => getRoleBadge(row.original.role) },
+    { 
+      accessorKey: 'role', 
+      header: 'Role', 
+      cell: ({ row }) => getRoleBadge(row.original.role),
+    },
     {
       accessorKey: 'department',
       header: 'Department',
-      cell: ({ row }) => row.original.department?.name || <span className="text-muted-foreground">-</span>,
+      cell: ({ row }) => (
+        <span className="text-sm truncate max-w-[120px] block">
+          {row.original.department?.name || <span className="text-muted-foreground">-</span>}
+        </span>
+      ),
     },
     {
       id: 'actions',
+      header: '',
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuLabel className="text-xs">Actions</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleEdit(row.original)}><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(row.original)}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleEdit(row.original)} className="text-sm">
+              <Pencil className="mr-2 h-3.5 w-3.5" />Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive text-sm" onClick={() => handleDelete(row.original)}>
+              <Trash2 className="mr-2 h-3.5 w-3.5" />Delete
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
     },
   ];
 
-  if (loading) return <div className="flex justify-center p-8"><UserCog className="h-8 w-8 animate-spin" /></div>;
+  if (loading) return (
+    <div className="flex justify-center p-8">
+      <UserCog className="h-6 w-6 animate-spin text-primary" />
+    </div>
+  );
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Users Management</h1>
-          <p className="text-muted-foreground">Manage system users and roles</p>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">Users Management</h1>
+          <p className="text-sm text-muted-foreground">Manage system users and roles</p>
         </div>
-        <Button onClick={handleCreate}><Plus className="mr-2 h-4 w-4" />Add User</Button>
+        <Button onClick={handleCreate} size="sm" className="shrink-0">
+          <Plus className="mr-1.5 h-4 w-4" />
+          <span className="hidden sm:inline">Add User</span>
+          <span className="sm:hidden">Add</span>
+        </Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <Card><CardContent className="pt-6"><div className="text-2xl font-bold">{users.length}</div><p className="text-sm text-muted-foreground">Total Users</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</div><p className="text-sm text-muted-foreground">Admins</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-2xl font-bold">{users.filter(u => u.role === 'department_head').length}</div><p className="text-sm text-muted-foreground">Dept Heads</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="text-2xl font-bold">{users.filter(u => u.role === 'faculty').length}</div><p className="text-sm text-muted-foreground">Faculty</p></CardContent></Card>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <Card>
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold">{users.length}</div>
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Users</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</div>
+            <p className="text-xs sm:text-sm text-muted-foreground">Admins</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold">{users.filter(u => u.role === 'department_head').length}</div>
+            <p className="text-xs sm:text-sm text-muted-foreground">Dept Heads</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold">{users.filter(u => u.role === 'faculty').length}</div>
+            <p className="text-xs sm:text-sm text-muted-foreground">Faculty</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <Card><CardContent className="pt-6"><DataTable columns={columns} data={users} searchKey="name" /></CardContent></Card>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{selectedUser ? 'Edit User' : 'Add User'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>Name</Label><Input value={formData.name as string || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Email</Label><Input type="email" value={formData.email as string || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} /></div>
-            {formData.isNew && (
-              <div className="space-y-2"><Label>Password</Label><Input type="password" value={formData.password as string || ''} onChange={(e) => setFormData({ ...formData, password: e.target.value })} /></div>
+      {/* Data Table */}
+      <Card>
+        <CardContent className="p-3 sm:p-6">
+          <DataTable 
+            columns={columns} 
+            data={users} 
+            searchKey="name"
+            searchPlaceholder="Search users..."
+            mobileCardRender={(user) => (
+              <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="h-10 w-10 shrink-0">
+                      <AvatarImage src={user.image || ''} />
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {user.name?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{user.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEdit(user)}>
+                        <Pencil className="mr-2 h-3.5 w-3.5" />Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(user)}>
+                        <Trash2 className="mr-2 h-3.5 w-3.5" />Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {getRoleBadge(user.role)}
+                  {user.department && (
+                    <Badge variant="outline" className="text-xs">{user.department.name}</Badge>
+                  )}
+                </div>
+              </div>
             )}
-            <div className="space-y-2"><Label>Role</Label>
-              <Select value={formData.role as string || 'faculty'} onValueChange={(v) => setFormData({ ...formData, role: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="department_head">Department Head</SelectItem>
-                  <SelectItem value="faculty">Faculty</SelectItem>
-                </SelectContent>
-              </Select>
+          />
+        </CardContent>
+      </Card>
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-[95vw] sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg">{selectedUser ? 'Edit User' : 'Add User'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 sm:py-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Name</Label>
+              <Input 
+                value={formData.name as string || ''} 
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="h-9 text-sm"
+              />
+              {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
             </div>
-            <div className="space-y-2"><Label>Department</Label>
-              <Select value={formData.departmentId as string || ''} onValueChange={(v) => setFormData({ ...formData, departmentId: v })}>
-                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
-                <SelectContent>{departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
-              </Select>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Email</Label>
+              <Input 
+                type="email" 
+                value={formData.email as string || ''} 
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="h-9 text-sm"
+              />
+              {formErrors.email && <p className="text-xs text-destructive">{formErrors.email}</p>}
             </div>
+            {formData.isNew && (
+              <div className="space-y-1.5">
+                <Label className="text-sm">Password</Label>
+                <Input 
+                  type="password" 
+                  value={formData.password as string || ''} 
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="h-9 text-sm"
+                />
+                {formErrors.password && <p className="text-xs text-destructive">{formErrors.password}</p>}
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm">Role</Label>
+                <Select value={formData.role as string || 'faculty'} onValueChange={(v) => setFormData({ ...formData, role: v })}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="department_head">Department Head</SelectItem>
+                    <SelectItem value="faculty">Faculty</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Department</Label>
+                <Select value={formData.departmentId as string || ''} onValueChange={(v) => setFormData({ ...formData, departmentId: v })}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select department" /></SelectTrigger>
+                  <SelectContent>
+                    {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {formData.role !== 'admin' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Contract Type</Label>
+                  <Select value={formData.contractType as string || 'full-time'} onValueChange={(v) => setFormData({ ...formData, contractType: v })}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full-time">Full-time</SelectItem>
+                      <SelectItem value="part-time">Part-time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Max Units</Label>
+                  <Input 
+                    type="number" 
+                    value={formData.maxUnits as number || 24} 
+                    onChange={(e) => setFormData({ ...formData, maxUnits: parseInt(e.target.value) || 24 })}
+                    className="h-9 text-sm"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{selectedUser ? 'Update' : 'Create'}</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto h-9">Cancel</Button>
+            <Button onClick={handleSubmit} disabled={saving} className="w-full sm:w-auto h-9">
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {selectedUser ? 'Update' : 'Create'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Delete User</DialogTitle></DialogHeader>
-          <p>Delete {selectedUser?.name}?</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+              Delete User
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. All associated data will be permanently removed.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+              <Avatar className="h-10 w-10 shrink-0">
+                <AvatarImage src={selectedUser.image || ''} />
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {selectedUser.name?.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="font-medium text-sm truncate">{selectedUser.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{selectedUser.email}</p>
+                <div className="mt-1">{getRoleBadge(selectedUser.role)}</div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="w-full sm:w-auto h-9" disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} className="w-full sm:w-auto h-9" disabled={deleting}>
+              {deleting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting...</>
+              ) : (
+                <><Trash2 className="mr-2 h-4 w-4" />Delete User</>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

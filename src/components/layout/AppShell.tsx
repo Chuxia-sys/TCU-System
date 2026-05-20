@@ -40,7 +40,7 @@ export function AppShell({ children }: AppShellProps) {
           'flex-1 flex flex-col transition-all duration-300 ease-in-out',
           // Desktop: apply margin for sidebar
           'md:transition-all',
-          sidebarCollapsed ? 'md:ml-16' : 'md:ml-64',
+          sidebarCollapsed ? 'md:ml-16' : 'md:ml-56',
           // Mobile: no margin, full width
           'ml-0'
         )}
@@ -49,7 +49,7 @@ export function AppShell({ children }: AppShellProps) {
         <Header />
         
         {/* Main Content with bottom padding for mobile nav */}
-        <main className="flex-1 p-4 lg:p-6 pb-24 md:pb-6">
+        <main className="flex-1 p-3 sm:p-4 lg:p-6 pb-24 md:pb-6">
           {children}
         </main>
 

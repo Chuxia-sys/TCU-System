@@ -204,7 +204,7 @@ export function SubjectsView() {
       accessorKey: 'subjectCode',
       header: 'Code',
       cell: ({ row }) => (
-        <Badge variant="outline" className="font-mono">
+        <Badge variant="outline" className="font-mono text-xs">
           {row.original.subjectCode}
         </Badge>
       ),
@@ -217,7 +217,7 @@ export function SubjectsView() {
       accessorKey: 'units',
       header: 'Units',
       cell: ({ row }) => (
-        <Badge variant="secondary">{row.original.units} units</Badge>
+        <Badge variant="secondary" className="text-xs">{row.original.units} units</Badge>
       ),
     },
     {
@@ -226,7 +226,7 @@ export function SubjectsView() {
       cell: ({ row }) => {
         const dept = row.original.department;
         return dept ? (
-          <Badge variant="outline">{dept.name}</Badge>
+          <Badge variant="outline" className="text-xs">{dept.name}</Badge>
         ) : (
           <span className="text-muted-foreground">-</span>
         );
@@ -271,23 +271,23 @@ export function SubjectsView() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Subjects</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Subjects</h1>
           <p className="text-muted-foreground">
             Manage course subjects and offerings
             {isDeptHead && ' (Your department only)'}
           </p>
         </div>
-        <Button onClick={handleCreate}>
+        <Button onClick={handleCreate} className="h-9">
           <Plus className="mr-2 h-4 w-4" />
           Add Subject
         </Button>
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-3 sm:p-6">
           <DataTable
             columns={columns}
             data={subjects}
@@ -298,53 +298,53 @@ export function SubjectsView() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedSubject ? 'Edit Subject' : 'Add New Subject'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Code *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Code *</Label>
+              <div className="space-y-1">
                 <Input
                   value={formData.subjectCode as string || ''}
                   onChange={(e) => setFormData({ ...formData, subjectCode: e.target.value })}
-                  className={formErrors.subjectCode ? 'border-destructive' : ''}
+                  className={`h-9 text-sm${formErrors.subjectCode ? ' border-destructive' : ''}`}
                 />
                 {formErrors.subjectCode && <p className="text-xs text-destructive">{formErrors.subjectCode}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Name *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Name *</Label>
+              <div className="space-y-1">
                 <Input
                   value={formData.subjectName as string || ''}
                   onChange={(e) => setFormData({ ...formData, subjectName: e.target.value })}
-                  className={formErrors.subjectName ? 'border-destructive' : ''}
+                  className={`h-9 text-sm${formErrors.subjectName ? ' border-destructive' : ''}`}
                 />
                 {formErrors.subjectName && <p className="text-xs text-destructive">{formErrors.subjectName}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Units *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Units *</Label>
+              <div className="space-y-1">
                 <Input
                   type="number"
                   value={formData.units as number || 3}
                   onChange={(e) => setFormData({ ...formData, units: parseInt(e.target.value) })}
-                  className={formErrors.units ? 'border-destructive' : ''}
+                  className={`h-9 text-sm${formErrors.units ? ' border-destructive' : ''}`}
                 />
                 {formErrors.units && <p className="text-xs text-destructive">{formErrors.units}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right flex items-center gap-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm flex items-center gap-1">
                 Department *
                 {isDepartmentLocked && (
                   <Lock className="h-3 w-3 text-muted-foreground" />
                 )}
               </Label>
-              <div className="col-span-3 space-y-1">
+              <div className="space-y-1">
                 <Select
                   value={formData.departmentId as string || ''}
                   onValueChange={(value) => setFormData({ ...formData, departmentId: value })}
@@ -372,9 +372,9 @@ export function SubjectsView() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving}>{saving ? 'Saving...' : selectedSubject ? 'Update' : 'Create'}</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto h-9">Cancel</Button>
+            <Button onClick={handleSubmit} disabled={saving} className="w-full sm:w-auto h-9">{saving ? 'Saving...' : selectedSubject ? 'Update' : 'Create'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

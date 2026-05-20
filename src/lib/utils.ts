@@ -7,18 +7,32 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Safely parse a fetch Response as JSON.
- * Returns null if the response is not OK, not JSON, or parsing fails.
- * Prevents "Unexpected token '<'" SyntaxError when the server returns HTML.
+ * Returns null if the response is not JSON or parsing fails.
+ * For non-OK responses, still attempts to parse the JSON body to extract error messages.
  */
 export async function safeJson<T = unknown>(res: Response): Promise<T | null> {
-  if (!res.ok) return null;
   const ct = res.headers.get('content-type') || '';
-  if (!ct.includes('application/json')) return null;
-  try {
-    return await res.json() as T;
-  } catch {
-    return null;
+  const isJson = ct.includes('application/json');
+  
+  if (res.ok) {
+    if (!isJson) return null;
+    try {
+      return await res.json() as T;
+    } catch {
+      return null;
+    }
   }
+  
+  // Non-OK response: try to parse JSON body for error messages
+  if (isJson) {
+    try {
+      return await res.json() as T;
+    } catch {
+      return null;
+    }
+  }
+  
+  return null;
 }
 
 /**

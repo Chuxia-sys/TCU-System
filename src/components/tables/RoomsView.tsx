@@ -182,7 +182,7 @@ export function RoomsView() {
       accessorKey: 'capacity',
       header: 'Capacity',
       cell: ({ row }) => (
-        <Badge variant="secondary">{row.original.capacity} seats</Badge>
+        <Badge variant="secondary" className="text-xs">{row.original.capacity} seats</Badge>
       ),
     },
     {
@@ -242,20 +242,20 @@ export function RoomsView() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Rooms</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Rooms</h1>
           <p className="text-muted-foreground">Manage classrooms and facilities</p>
         </div>
-        <Button onClick={handleCreate}>
+        <Button onClick={handleCreate} className="h-9">
           <Plus className="mr-2 h-4 w-4" />
           Add Room
         </Button>
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-3 sm:p-6">
           <DataTable
             columns={columns}
             data={rooms}
@@ -266,49 +266,49 @@ export function RoomsView() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedRoom ? 'Edit Room' : 'Add New Room'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Name *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Name *</Label>
+              <div className="space-y-1">
                 <Input
                   value={formData.roomName as string || ''}
                   onChange={(e) => setFormData({ ...formData, roomName: e.target.value })}
-                  className={formErrors.roomName ? 'border-destructive' : ''}
+                  className={`h-9 text-sm ${formErrors.roomName ? 'border-destructive' : ''}`}
                 />
                 {formErrors.roomName && <p className="text-xs text-destructive">{formErrors.roomName}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Building *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Building *</Label>
+              <div className="space-y-1">
                 <Input
                   value={formData.building as string || ''}
                   onChange={(e) => setFormData({ ...formData, building: e.target.value })}
-                  className={formErrors.building ? 'border-destructive' : ''}
+                  className={`h-9 text-sm ${formErrors.building ? 'border-destructive' : ''}`}
                 />
                 {formErrors.building && <p className="text-xs text-destructive">{formErrors.building}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Capacity *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Capacity *</Label>
+              <div className="space-y-1">
                 <Input
                   type="number"
                   value={formData.capacity as number || 40}
                   onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
-                  className={formErrors.capacity ? 'border-destructive' : ''}
+                  className={`h-9 text-sm ${formErrors.capacity ? 'border-destructive' : ''}`}
                 />
                 {formErrors.capacity && <p className="text-xs text-destructive">{formErrors.capacity}</p>}
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving}>{saving ? 'Saving...' : selectedRoom ? 'Update' : 'Create'}</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="w-full sm:w-auto h-9">Cancel</Button>
+            <Button onClick={handleSubmit} disabled={saving} className="w-full sm:w-auto h-9">{saving ? 'Saving...' : selectedRoom ? 'Update' : 'Create'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

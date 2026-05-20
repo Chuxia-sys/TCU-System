@@ -285,7 +285,7 @@ export function FacultyView() {
         const isOverloaded = load > maxUnits;
 
         return (
-          <div className="w-32">
+          <div className="w-32 min-w-[100px]">
             <div className="flex justify-between text-xs mb-1">
               <span>{load}/{maxUnits} units</span>
               <span className={isOverloaded ? 'text-red-500' : ''}>{percentage}%</span>
@@ -343,12 +343,12 @@ export function FacultyView() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6"
+      className="space-y-4 sm:space-y-6"
     >
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Faculty Management</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Faculty Management</h1>
           <p className="text-muted-foreground">
             Manage faculty members and teaching loads
             {isDeptHead && ' (Your department only)'}
@@ -363,30 +363,30 @@ export function FacultyView() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{faculty.length}</div>
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold">{faculty.length}</div>
             <p className="text-sm text-muted-foreground">Total Faculty</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold">
               {faculty.filter((f) => f.contractType === 'full-time').length}
             </div>
             <p className="text-sm text-muted-foreground">Full-time</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold">
               {faculty.filter((f) => f.contractType === 'part-time').length}
             </div>
             <p className="text-sm text-muted-foreground">Part-time</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold">
               {faculty.filter((f) => getFacultyLoad(f.id) > f.maxUnits).length}
             </div>
             <p className="text-sm text-muted-foreground">Overloaded</p>
@@ -396,7 +396,7 @@ export function FacultyView() {
 
       {/* Data Table */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-3 sm:p-6">
           <DataTable
             columns={columns}
             data={faculty}
@@ -471,7 +471,7 @@ export function FacultyView() {
                 value={formData.name as string || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Enter faculty name"
-                className={formErrors.name ? 'border-destructive' : ''}
+                className={`h-9 ${formErrors.name ? 'border-destructive' : ''}`}
               />
               {formErrors.name && <p className="text-xs text-destructive">{formErrors.name}</p>}
             </div>
@@ -483,7 +483,7 @@ export function FacultyView() {
                 value={formData.email as string || ''}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="Enter email address"
-                className={formErrors.email ? 'border-destructive' : ''}
+                className={`h-9 ${formErrors.email ? 'border-destructive' : ''}`}
               />
               {formErrors.email && <p className="text-xs text-destructive">{formErrors.email}</p>}
             </div>
@@ -496,7 +496,7 @@ export function FacultyView() {
                   value={formData.password as string || ''}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="Enter password (min 6 characters)"
-                  className={formErrors.password ? 'border-destructive' : ''}
+                  className={`h-9 ${formErrors.password ? 'border-destructive' : ''}`}
                 />
                 {formErrors.password && <p className="text-xs text-destructive">{formErrors.password}</p>}
               </div>
@@ -557,7 +557,7 @@ export function FacultyView() {
                 type="number"
                 value={formData.maxUnits as number || 24}
                 onChange={(e) => setFormData({ ...formData, maxUnits: parseInt(e.target.value) || 24 })}
-                className={formErrors.maxUnits ? 'border-destructive' : ''}
+                className={`h-9 ${formErrors.maxUnits ? 'border-destructive' : ''}`}
               />
               {formErrors.maxUnits && <p className="text-xs text-destructive">{formErrors.maxUnits}</p>}
             </div>
@@ -573,16 +573,16 @@ export function FacultyView() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Delete Faculty</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete {selectedFaculty?.name}? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete} className="w-full sm:w-auto">Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

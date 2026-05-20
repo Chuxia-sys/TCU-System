@@ -213,7 +213,7 @@ export function SectionsView() {
       accessorKey: 'yearLevel',
       header: 'Year Level',
       cell: ({ row }) => (
-        <Badge variant="outline">Year {row.original.yearLevel}</Badge>
+        <Badge variant="outline" className="text-xs">Year {row.original.yearLevel}</Badge>
       ),
     },
     {
@@ -222,7 +222,7 @@ export function SectionsView() {
       cell: ({ row }) => {
         const dept = row.original.department;
         return dept ? (
-          <Badge variant="secondary">{dept.name}</Badge>
+          <Badge variant="secondary" className="text-xs">{dept.name}</Badge>
         ) : (
           <span className="text-muted-foreground">-</span>
         );
@@ -277,23 +277,23 @@ export function SectionsView() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sections</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Sections</h1>
           <p className="text-muted-foreground">
             Manage student sections and cohorts
             {isDeptHead && ' (Your department only)'}
           </p>
         </div>
-        <Button onClick={handleCreate}>
+        <Button className="h-9" onClick={handleCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Add Section
         </Button>
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-3 sm:p-6">
           <DataTable
             columns={columns}
             data={sections}
@@ -304,25 +304,25 @@ export function SectionsView() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedSection ? 'Edit Section' : 'Add New Section'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Name *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Name *</Label>
+              <div className="space-y-1">
                 <Input
                   value={formData.sectionName as string || ''}
                   onChange={(e) => setFormData({ ...formData, sectionName: e.target.value })}
-                  className={formErrors.sectionName ? 'border-destructive' : ''}
+                  className={`h-9 text-sm${formErrors.sectionName ? ' border-destructive' : ''}`}
                 />
                 {formErrors.sectionName && <p className="text-xs text-destructive">{formErrors.sectionName}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Year Level *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Year Level *</Label>
+              <div className="space-y-1">
                 <Select
                   value={String(formData.yearLevel || 1)}
                   onValueChange={(value) => setFormData({ ...formData, yearLevel: parseInt(value) })}
@@ -339,14 +339,14 @@ export function SectionsView() {
                 {formErrors.yearLevel && <p className="text-xs text-destructive">{formErrors.yearLevel}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right flex items-center gap-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm flex items-center gap-1">
                 Department *
                 {isDepartmentLocked && (
                   <Lock className="h-3 w-3 text-muted-foreground" />
                 )}
               </Label>
-              <div className="col-span-3 space-y-1">
+              <div className="space-y-1">
                 <Select
                   value={formData.departmentId as string || ''}
                   onValueChange={(value) => setFormData({ ...formData, departmentId: value })}
@@ -373,22 +373,22 @@ export function SectionsView() {
                 {formErrors.departmentId && <p className="text-xs text-destructive">{formErrors.departmentId}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Students *</Label>
-              <div className="col-span-3 space-y-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Students *</Label>
+              <div className="space-y-1">
                 <Input
                   type="number"
                   value={formData.studentCount as number || 40}
                   onChange={(e) => setFormData({ ...formData, studentCount: parseInt(e.target.value) })}
-                  className={formErrors.studentCount ? 'border-destructive' : ''}
+                  className={`h-9 text-sm${formErrors.studentCount ? ' border-destructive' : ''}`}
                 />
                 {formErrors.studentCount && <p className="text-xs text-destructive">{formErrors.studentCount}</p>}
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={saving}>{saving ? 'Saving...' : selectedSection ? 'Update' : 'Create'}</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" className="w-full sm:w-auto h-9" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button className="w-full sm:w-auto h-9" onClick={handleSubmit} disabled={saving}>{saving ? 'Saving...' : selectedSection ? 'Update' : 'Create'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -399,9 +399,9 @@ export function SectionsView() {
             <DialogTitle>Delete Section</DialogTitle>
           </DialogHeader>
           <p>Are you sure you want to delete {selectedSection?.sectionName}?</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" className="w-full sm:w-auto h-9" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" className="w-full sm:w-auto h-9" onClick={confirmDelete}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

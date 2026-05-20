@@ -341,10 +341,10 @@ export function SchedulesView() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Manage Schedules</h1>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">Manage Schedules</h1>
           <p className="text-muted-foreground">Create and manage class schedules</p>
         </div>
         <Button onClick={handleCreate}>
@@ -354,41 +354,41 @@ export function SchedulesView() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{schedules.length}</div>
-            <p className="text-sm text-muted-foreground">Total Schedules</p>
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold">{schedules.length}</div>
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Schedules</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-primary">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold text-primary">
               {schedules.filter(s => s.status === 'approved').length}
             </div>
-            <p className="text-sm text-muted-foreground">Approved</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Approved</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-blue-600">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold text-blue-600">
               {schedules.filter(s => s.status === 'generated').length}
             </div>
-            <p className="text-sm text-muted-foreground">Generated</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Generated</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-red-600">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-lg sm:text-2xl font-bold text-red-600">
               {schedules.filter(s => s.status === 'conflict').length}
             </div>
-            <p className="text-sm text-muted-foreground">With Conflicts</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">With Conflicts</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-3 sm:p-6">
           <DataTable
             columns={columns}
             data={schedules}
@@ -633,16 +633,16 @@ export function SchedulesView() {
 
       {/* Delete Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Delete Schedule</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this schedule? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="w-full sm:w-auto h-9">Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete} className="w-full sm:w-auto h-9">Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

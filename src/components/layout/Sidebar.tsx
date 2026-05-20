@@ -84,7 +84,7 @@ function NavButton({
       onClick={onClick}
       aria-label={item.label}
       className={cn(
-        'flex w-full items-center rounded-lg text-sm font-medium transition-all duration-200 ease-in-out',
+        'flex w-full items-center rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ease-in-out',
         // Expanded layout
         !collapsed && 'gap-3 px-3 py-2.5',
         // Collapsed layout — centered square button
@@ -152,7 +152,7 @@ export function Sidebar() {
       <aside
         className={cn(
           'hidden md:flex fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-in-out flex-col overflow-hidden',
-          sidebarCollapsed ? 'w-16' : 'w-64'
+          sidebarCollapsed ? 'w-16' : 'w-56'
         )}
       >
         {/* ── Header: Logo + Burger ── */}

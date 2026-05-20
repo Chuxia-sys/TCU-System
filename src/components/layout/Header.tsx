@@ -165,7 +165,7 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 sm:gap-4 border-b border-[#6B0000] bg-[#8B0000] px-4 lg:px-6 shrink-0">
+    <header className="sticky top-0 z-30 flex h-14 md:h-16 items-center gap-2 sm:gap-4 border-b border-[#6B0000] bg-[#8B0000] px-4 lg:px-6 shrink-0">
       {/* Logo for mobile - only shows on mobile since sidebar is hidden */}
       <div className="flex items-center gap-2 md:hidden shrink-0">
         <div className="bg-white rounded-lg p-1">
@@ -224,7 +224,7 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent align="end" className="w-80 p-0">
+          <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)] p-0">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>

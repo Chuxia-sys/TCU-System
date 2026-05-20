@@ -258,6 +258,30 @@ function createModel(name: string, uniqueFields: string[], relations: ModelRelat
 
     await Promise.all(
       Object.entries(include).map(async ([key, val]) => {
+        // Handle Prisma-style _count
+        if (key === '_count') {
+          const countResult: Record<string, number> = {};
+          const selectFields = typeof val === 'object' && val !== null && val.select ? val.select : {};
+          
+          for (const [field, enabled] of Object.entries(selectFields)) {
+            if (enabled && relations[field] && relations[field].type === 'many') {
+              try {
+                const count = await runQuery(
+                  relations[field].collection,
+                  [{ field: relations[field].foreignKey, op: 'EQUAL', value: data.id }],
+                  undefined,
+                  10000
+                );
+                countResult[field] = count.length;
+              } catch {
+                countResult[field] = 0;
+              }
+            }
+          }
+          result._count = countResult;
+          return;
+        }
+
         const relation = relations[key];
         if (!relation) return;
 

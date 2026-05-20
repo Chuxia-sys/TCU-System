@@ -163,15 +163,18 @@ export async function DELETE(
   try {
     const session = await getAuthSession();
     if (!session?.user?.id) {
+      console.warn('[DELETE /api/users/[id]] Unauthorized: no session');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Only admin can delete users
     if (session.user.role !== 'admin') {
+      console.warn(`[DELETE /api/users/[id]] Access denied: role=${session.user.role}`);
       return NextResponse.json({ error: 'Access denied. Admin only.' }, { status: 403 });
     }
 
     const { id } = await params;
+    console.log(`[DELETE /api/users/[id]] Deleting user ${id} requested by ${session.user.id}`);
 
     // Prevent self-deletion
     if (id === session.user.id) {
@@ -179,14 +182,10 @@ export async function DELETE(
     }
 
     // Check if user exists
-    const user = await db.user.findUnique({ 
-      where: { id },
-      include: {
-        _count: { select: { schedules: true } }
-      }
-    });
+    const user = await db.user.findUnique({ where: { id } });
     
     if (!user) {
+      console.warn(`[DELETE /api/users/[id]] User ${id} not found`);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -200,65 +199,106 @@ export async function DELETE(
       }
     }
 
+    // Count schedules before deletion for audit log
+    const scheduleCount = await db.schedule.count({ where: { facultyId: id } });
+    console.log(`[DELETE /api/users/[id]] Found ${scheduleCount} schedules for user ${id}`);
+
     // Delete related records in the correct order to avoid foreign key constraint violations
-    
-    // 1. Delete schedule logs where user modified schedules
-    await db.scheduleLog.deleteMany({ where: { modifiedBy: id } });
-    
-    // 2. Get all schedule IDs for this user (to delete related schedule logs)
-    const userScheduleIds = await db.schedule.findMany({
-      where: { facultyId: id },
-      select: { id: true }
-    });
-    const scheduleIds = userScheduleIds.map(s => s.id);
-    
-    // 3. Delete schedule logs for schedules owned by this user
-    if (scheduleIds.length > 0) {
-      await db.scheduleLog.deleteMany({
-        where: { scheduleId: { in: scheduleIds } }
+    try {
+      // 1. Delete schedule logs where user modified schedules
+      const logResult1 = await db.scheduleLog.deleteMany({ where: { modifiedBy: id } });
+      console.log(`[DELETE /api/users/[id]] Deleted ${logResult1.count} scheduleLogs (modifiedBy)`);
+      
+      // 2. Get all schedule IDs for this user (to delete related records)
+      const userScheduleIds = await db.schedule.findMany({
+        where: { facultyId: id },
+        select: { id: true }
       });
+      const scheduleIds = userScheduleIds.map(s => s.id);
+      
+      // 3. Delete schedule logs for schedules owned by this user (batch in chunks of 30 for Firestore IN limit)
+      if (scheduleIds.length > 0) {
+        const CHUNK_SIZE = 30;
+        for (let i = 0; i < scheduleIds.length; i += CHUNK_SIZE) {
+          const chunk = scheduleIds.slice(i, i + CHUNK_SIZE);
+          await db.scheduleLog.deleteMany({
+            where: { scheduleId: { in: chunk } }
+          });
+        }
+        console.log(`[DELETE /api/users/[id]] Deleted scheduleLogs for ${scheduleIds.length} schedules`);
+      }
+      
+      // 4. Delete schedule responses for schedules owned by this user
+      if (scheduleIds.length > 0) {
+        const CHUNK_SIZE = 30;
+        for (let i = 0; i < scheduleIds.length; i += CHUNK_SIZE) {
+          const chunk = scheduleIds.slice(i, i + CHUNK_SIZE);
+          await db.scheduleResponse.deleteMany({
+            where: { scheduleId: { in: chunk } }
+          });
+        }
+        console.log(`[DELETE /api/users/[id]] Deleted scheduleResponses for ${scheduleIds.length} schedules`);
+      }
+      
+      // 5. Delete schedule responses where user is the faculty
+      const srResult = await db.scheduleResponse.deleteMany({ where: { facultyId: id } });
+      console.log(`[DELETE /api/users/[id]] Deleted ${srResult.count} scheduleResponses (facultyId)`);
+      
+      // 6. Delete schedules where user is the faculty
+      const schedResult = await db.schedule.deleteMany({ where: { facultyId: id } });
+      console.log(`[DELETE /api/users/[id]] Deleted ${schedResult.count} schedules`);
+      
+      // 7. Delete notifications
+      const notifResult = await db.notification.deleteMany({ where: { userId: id } });
+      console.log(`[DELETE /api/users/[id]] Deleted ${notifResult.count} notifications`);
+      
+      // 8. Delete faculty preferences
+      const prefResult = await db.facultyPreference.deleteMany({ where: { facultyId: id } });
+      console.log(`[DELETE /api/users/[id]] Deleted ${prefResult.count} preferences`);
+      
+      // 9. Delete audit logs referencing this user
+      const auditResult = await db.auditLog.deleteMany({ where: { userId: id } });
+      console.log(`[DELETE /api/users/[id]] Deleted ${auditResult.count} auditLogs`);
+    } catch (cleanupError) {
+      console.error('[DELETE /api/users/[id]] Error during related data cleanup:', cleanupError);
+      // Continue to try deleting the user anyway
     }
-    
-    // 4. Delete schedules where user is the faculty
-    await db.schedule.deleteMany({ where: { facultyId: id } });
-    
-    // 5. Delete notifications
-    await db.notification.deleteMany({ where: { userId: id } });
-    
-    // 6. Delete faculty preferences
-    await db.facultyPreference.deleteMany({ where: { facultyId: id } });
-    
-    // 7. Delete audit logs referencing this user (set userId to null instead of deleting)
-    await db.auditLog.updateMany({
-      where: { userId: id },
-      data: { userId: null }
-    });
 
-    // 8. Finally delete the user
-    await db.user.delete({ where: { id } });
+    // 10. Finally delete the user
+    try {
+      await db.user.delete({ where: { id } });
+      console.log(`[DELETE /api/users/[id]] User ${id} deleted successfully`);
+    } catch (deleteError) {
+      console.error('[DELETE /api/users/[id]] Error deleting user record:', deleteError);
+      return NextResponse.json({ error: 'Failed to delete user from database.' }, { status: 500 });
+    }
 
-    // Create audit log for this deletion
-    await db.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'delete',
-        entity: 'user',
-        entityId: id,
-        details: JSON.stringify({ 
-          email: user.email, 
-          name: user.name,
-          role: user.role,
-          deletedSchedules: user._count.schedules
-        }),
-      },
-    });
+    // Create audit log for this deletion (non-blocking - don't fail if this errors)
+    try {
+      await db.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'delete',
+          entity: 'user',
+          entityId: id,
+          details: JSON.stringify({ 
+            email: user.email, 
+            name: user.name,
+            role: user.role,
+            deletedSchedules: scheduleCount
+          }),
+        },
+      });
+    } catch (auditError) {
+      console.error('[DELETE /api/users/[id]] Error creating audit log (non-fatal):', auditError);
+    }
 
     return NextResponse.json({ 
       success: true, 
-      message: `User deleted successfully. ${user._count.schedules} schedule(s) were also removed.` 
+      message: `User deleted successfully. ${scheduleCount} schedule(s) were also removed.` 
     });
   } catch (error) {
-    console.error('Error deleting user:', error);
+    console.error('[DELETE /api/users/[id]] Unexpected error:', error);
     return NextResponse.json({ error: 'Failed to delete user. Please try again.' }, { status: 500 });
   }
 }

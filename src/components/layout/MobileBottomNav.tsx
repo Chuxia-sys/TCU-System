@@ -165,7 +165,7 @@ function MoreNavItems({
         <SheetHeader className="pb-4">
           <SheetTitle className="text-center">More Options</SheetTitle>
         </SheetHeader>
-        <div className="grid grid-cols-4 gap-4 pb-6">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 pb-6">
           {items.map((item) => {
             const isActive = currentView === item.id;
             const Icon = item.icon;
