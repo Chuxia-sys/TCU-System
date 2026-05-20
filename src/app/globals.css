@@ -62,8 +62,8 @@
   --secondary-foreground: #6D0000;
   --muted: #EDEDED;
   --muted-foreground: #6B7280;
-  --accent: #FEF2F2;             /* Red-50 tint */
-  --accent-foreground: #6D0000;
+  --accent: #F5F5F5;             /* Neutral light gray (no red tint) */
+  --accent-foreground: #374151;
   --destructive: #DC2626;
   --border: #E5E5E5;             /* Border Gray */
   --input: #E5E5E5;
@@ -80,8 +80,8 @@
   --sidebar-foreground: #1A1A2E;
   --sidebar-primary: #8B0000;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #FEF2F2;
-  --sidebar-accent-foreground: #6D0000;
+  --sidebar-accent: #F5F5F5;
+  --sidebar-accent-foreground: #374151;
   --sidebar-border: #E5E5E5;
   --sidebar-ring: #8B0000;
 }
@@ -149,11 +149,11 @@
   }
   .btn-lift:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(139, 0, 0, 0.25);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   }
   .btn-lift:active {
     transform: translateY(0);
-    box-shadow: 0 1px 3px rgba(139, 0, 0, 0.15);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
 
   /* Card hover elevation */
@@ -161,7 +161,7 @@
     @apply transition-all duration-300;
   }
   .card-hover:hover {
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
     transform: translateY(-2px);
   }
 
@@ -207,11 +207,11 @@
     border-radius: 3px;
   }
   .premium-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(139, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.15);
     border-radius: 3px;
   }
   .premium-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(139, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.25);
   }
 
   /* Premium scrollbar — dark mode */
@@ -219,10 +219,10 @@
     background: #1A1D24;
   }
   .dark .premium-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(192, 0, 24, 0.3);
+    background: rgba(255, 255, 255, 0.15);
   }
   .dark .premium-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(192, 0, 24, 0.5);
+    background: rgba(255, 255, 255, 0.25);
   }
 
   /* Crimson solid background (no gradient) */

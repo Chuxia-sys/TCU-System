@@ -36,19 +36,22 @@ const MIN_CARD_WIDTH = 90; // minimum px width before stacking
 const MAX_VISIBLE_OVERLAPS = 3; // max cards shown side by side
 
 // ─── Color palette (12 pastel colors for light & dark mode) ───────────
+// hoverBg uses neutral soft overlays instead of color-intensified shades
+// Light: subtle dark overlay (black/5) for depth
+// Dark: soft white overlay (white/10) for luminance
 const CARD_COLORS = [
-  { bg: 'bg-emerald-100 dark:bg-emerald-950/50', border: 'border-emerald-400 dark:border-emerald-700', text: 'text-emerald-900 dark:text-emerald-100', accent: 'bg-emerald-500', dot: 'bg-emerald-500', hoverBg: 'hover:bg-emerald-200 dark:hover:bg-emerald-950/70' },
-  { bg: 'bg-sky-100 dark:bg-sky-950/50', border: 'border-sky-400 dark:border-sky-700', text: 'text-sky-900 dark:text-sky-100', accent: 'bg-sky-500', dot: 'bg-sky-500', hoverBg: 'hover:bg-sky-200 dark:hover:bg-sky-950/70' },
-  { bg: 'bg-violet-100 dark:bg-violet-950/50', border: 'border-violet-400 dark:border-violet-700', text: 'text-violet-900 dark:text-violet-100', accent: 'bg-violet-500', dot: 'bg-violet-500', hoverBg: 'hover:bg-violet-200 dark:hover:bg-violet-950/70' },
-  { bg: 'bg-amber-100 dark:bg-amber-950/50', border: 'border-amber-400 dark:border-amber-700', text: 'text-amber-900 dark:text-amber-100', accent: 'bg-amber-500', dot: 'bg-amber-500', hoverBg: 'hover:bg-amber-200 dark:hover:bg-amber-950/70' },
-  { bg: 'bg-rose-100 dark:bg-rose-950/50', border: 'border-rose-400 dark:border-rose-700', text: 'text-rose-900 dark:text-rose-100', accent: 'bg-rose-500', dot: 'bg-rose-500', hoverBg: 'hover:bg-rose-200 dark:hover:bg-rose-950/70' },
-  { bg: 'bg-teal-100 dark:bg-teal-950/50', border: 'border-teal-400 dark:border-teal-700', text: 'text-teal-900 dark:text-teal-100', accent: 'bg-teal-500', dot: 'bg-teal-500', hoverBg: 'hover:bg-teal-200 dark:hover:bg-teal-950/70' },
-  { bg: 'bg-orange-100 dark:bg-orange-950/50', border: 'border-orange-400 dark:border-orange-700', text: 'text-orange-900 dark:text-orange-100', accent: 'bg-orange-500', dot: 'bg-orange-500', hoverBg: 'hover:bg-orange-200 dark:hover:bg-orange-950/70' },
-  { bg: 'bg-cyan-100 dark:bg-cyan-950/50', border: 'border-cyan-400 dark:border-cyan-700', text: 'text-cyan-900 dark:text-cyan-100', accent: 'bg-cyan-500', dot: 'bg-cyan-500', hoverBg: 'hover:bg-cyan-200 dark:hover:bg-cyan-950/70' },
-  { bg: 'bg-fuchsia-100 dark:bg-fuchsia-950/50', border: 'border-fuchsia-400 dark:border-fuchsia-700', text: 'text-fuchsia-900 dark:text-fuchsia-100', accent: 'bg-fuchsia-500', dot: 'bg-fuchsia-500', hoverBg: 'hover:bg-fuchsia-200 dark:hover:bg-fuchsia-950/70' },
-  { bg: 'bg-lime-100 dark:bg-lime-950/50', border: 'border-lime-400 dark:border-lime-700', text: 'text-lime-900 dark:text-lime-100', accent: 'bg-lime-500', dot: 'bg-lime-500', hoverBg: 'hover:bg-lime-200 dark:hover:bg-lime-950/70' },
-  { bg: 'bg-pink-100 dark:bg-pink-950/50', border: 'border-pink-400 dark:border-pink-700', text: 'text-pink-900 dark:text-pink-100', accent: 'bg-pink-500', dot: 'bg-pink-500', hoverBg: 'hover:bg-pink-200 dark:hover:bg-pink-950/70' },
-  { bg: 'bg-yellow-100 dark:bg-yellow-950/50', border: 'border-yellow-400 dark:border-yellow-700', text: 'text-yellow-900 dark:text-yellow-100', accent: 'bg-yellow-500', dot: 'bg-yellow-500', hoverBg: 'hover:bg-yellow-200 dark:hover:bg-yellow-950/70' },
+  { bg: 'bg-emerald-100 dark:bg-emerald-950/50', border: 'border-emerald-400 dark:border-emerald-700', text: 'text-emerald-900 dark:text-emerald-100', accent: 'bg-emerald-500', dot: 'bg-emerald-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-sky-100 dark:bg-sky-950/50', border: 'border-sky-400 dark:border-sky-700', text: 'text-sky-900 dark:text-sky-100', accent: 'bg-sky-500', dot: 'bg-sky-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-violet-100 dark:bg-violet-950/50', border: 'border-violet-400 dark:border-violet-700', text: 'text-violet-900 dark:text-violet-100', accent: 'bg-violet-500', dot: 'bg-violet-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-amber-100 dark:bg-amber-950/50', border: 'border-amber-400 dark:border-amber-700', text: 'text-amber-900 dark:text-amber-100', accent: 'bg-amber-500', dot: 'bg-amber-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-rose-100 dark:bg-rose-950/50', border: 'border-rose-400 dark:border-rose-700', text: 'text-rose-900 dark:text-rose-100', accent: 'bg-rose-500', dot: 'bg-rose-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-teal-100 dark:bg-teal-950/50', border: 'border-teal-400 dark:border-teal-700', text: 'text-teal-900 dark:text-teal-100', accent: 'bg-teal-500', dot: 'bg-teal-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-orange-100 dark:bg-orange-950/50', border: 'border-orange-400 dark:border-orange-700', text: 'text-orange-900 dark:text-orange-100', accent: 'bg-orange-500', dot: 'bg-orange-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-cyan-100 dark:bg-cyan-950/50', border: 'border-cyan-400 dark:border-cyan-700', text: 'text-cyan-900 dark:text-cyan-100', accent: 'bg-cyan-500', dot: 'bg-cyan-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-fuchsia-100 dark:bg-fuchsia-950/50', border: 'border-fuchsia-400 dark:border-fuchsia-700', text: 'text-fuchsia-900 dark:text-fuchsia-100', accent: 'bg-fuchsia-500', dot: 'bg-fuchsia-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-lime-100 dark:bg-lime-950/50', border: 'border-lime-400 dark:border-lime-700', text: 'text-lime-900 dark:text-lime-100', accent: 'bg-lime-500', dot: 'bg-lime-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-pink-100 dark:bg-pink-950/50', border: 'border-pink-400 dark:border-pink-700', text: 'text-pink-900 dark:text-pink-100', accent: 'bg-pink-500', dot: 'bg-pink-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
+  { bg: 'bg-yellow-100 dark:bg-yellow-950/50', border: 'border-yellow-400 dark:border-yellow-700', text: 'text-yellow-900 dark:text-yellow-100', accent: 'bg-yellow-500', dot: 'bg-yellow-500', hoverBg: 'hover:bg-black/[0.04] dark:hover:bg-white/[0.08]' },
 ];
 
 // ─── Time helpers ─────────────────────────────────────────────────────
@@ -244,8 +247,10 @@ function ScheduleCard({
           transition={{ duration: 0.2, delay: col * 0.03 }}
           onClick={onClick}
           className={cn(
-            'absolute rounded-lg overflow-hidden transition-all duration-200 group/card cursor-pointer',
-            'hover:z-20 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'absolute rounded-lg overflow-hidden cursor-pointer',
+            'transition-all duration-200 ease-in-out group/card',
+            'hover:z-20 hover:shadow-md hover:scale-[1.015]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             'border-l-[3px]',
             color.bg,
             color.border,
@@ -824,7 +829,7 @@ export function CalendarView() {
             'flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all border',
             selectedDay === 'all'
               ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-              : 'bg-card border-border text-muted-foreground hover:bg-accent'
+              : 'bg-card border-border text-muted-foreground hover:bg-muted'
           )}
         >
           All
@@ -839,7 +844,7 @@ export function CalendarView() {
                 'flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all border',
                 selectedDay === day
                   ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                  : 'bg-card border-border text-muted-foreground hover:bg-accent'
+                  : 'bg-card border-border text-muted-foreground hover:bg-muted'
               )}
             >
               <span className="block">{day.slice(0, 3)}</span>
@@ -868,7 +873,7 @@ export function CalendarView() {
                       <div
                         key={day}
                         className={cn(
-                          'flex-1 min-w-[110px] py-2.5 text-center border-r last:border-r-0 cursor-pointer transition-colors hover:bg-accent/30',
+                          'flex-1 min-w-[110px] py-2.5 text-center border-r last:border-r-0 cursor-pointer transition-colors duration-200 hover:bg-black/[0.03] dark:hover:bg-white/[0.06]',
                           isDayHidden && 'opacity-30',
                           selectedDay === day && 'bg-primary/5',
                         )}

@@ -151,7 +151,7 @@ export function Sidebar() {
       {/* Desktop Sidebar — hidden on mobile */}
       <aside
         className={cn(
-          'hidden md:flex fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-in-out flex-col overflow-hidden',
+          'hidden md:flex fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-in-out flex-col',
           sidebarCollapsed ? 'w-16' : 'w-56'
         )}
       >
@@ -164,7 +164,7 @@ export function Sidebar() {
         >
           {/* Expanded logo + text */}
           {!sidebarCollapsed && (
-            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-1 min-w-0 ml-1">
               <div className="bg-white rounded-lg p-1 shrink-0">
                 <Image src="/tcu-logo.png" alt="TCU Logo" width={36} height={36} className="object-contain" />
               </div>
@@ -181,7 +181,7 @@ export function Sidebar() {
               variant="ghost"
               size="icon"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="h-9 w-9 text-white/80 hover:text-white hover:bg-white/15 shrink-0"
+              className="h-9 w-9 text-white/80 hover:text-white hover:bg-white/15 shrink-0 relative z-10 transition-all duration-200"
               aria-label="Collapse sidebar"
             >
               <Menu className="h-5 w-5" />
@@ -190,20 +190,20 @@ export function Sidebar() {
 
           {/* Collapsed: logo + burger side by side */}
           {sidebarCollapsed && (
-            <>
-              <div className="bg-white rounded-lg p-0.5 shrink-0 ml-[15px]">
+            <div className="flex items-center gap-1 w-full px-2">
+              <div className="bg-white rounded-lg p-0.5 shrink-0">
                 <Image src="/tcu-logo.png" alt="TCU Logo" width={28} height={28} className="object-contain" />
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="h-6 w-6 text-white/80 hover:text-white hover:bg-white/15 shrink-0"
+                className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/15 shrink-0 relative z-10 transition-all duration-200"
                 aria-label="Expand sidebar"
               >
                 <Menu className="h-4 w-4" />
               </Button>
-            </>
+            </div>
           )}
         </div>
 

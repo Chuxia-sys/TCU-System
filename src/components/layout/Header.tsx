@@ -167,12 +167,12 @@ export function Header() {
   return (
     <header className="sticky top-0 z-30 flex h-14 md:h-16 items-center gap-2 sm:gap-4 border-b border-[#6B0000] bg-[#8B0000] px-4 lg:px-6 shrink-0">
       {/* Logo for mobile - only shows on mobile since sidebar is hidden */}
-      <div className="flex items-center gap-2 md:hidden shrink-0">
-        <div className="bg-white rounded-lg p-1">
-          <Image 
-            src="/tcu-logo.png" 
-            alt="TCU Logo" 
-            width={36} 
+      <div className="flex items-center gap-2.5 md:hidden shrink-0 ml-1">
+        <div className="bg-white rounded-lg p-1 shrink-0">
+          <Image
+            src="/tcu-logo.png"
+            alt="TCU Logo"
+            width={36}
             height={36}
             className="object-contain"
           />
