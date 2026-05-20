@@ -1,36 +1,69 @@
+// =============================================================
+// Notification Client — Resilient Socket.IO Wrapper
+// =============================================================
+// Sends real-time notifications via the notification service.
+// When the service is unavailable, operations silently fail
+// without blocking the calling API route.
+//
+// IMPORTANT: This is a BEST-EFFORT service. Database
+// notifications (via db.notification.create) are the primary
+// delivery mechanism. Socket.IO is only for real-time push.
+// =============================================================
+
 import { io, Socket } from 'socket.io-client';
 
 let notificationSocket: Socket | null = null;
+let connectionAttempted = false;
+let lastConnectAttempt = 0;
+const RECONNECT_COOLDOWN = 30_000; // Don't retry connection more than once per 30s
 
 /**
- * Get or create a socket connection to the notification service
- * This is used by API routes to send real-time notifications
+ * Try to get a connected socket. Returns null if unavailable.
+ * Never blocks — if the socket isn't connected, returns null immediately.
  */
-function getNotificationSocket(): Socket {
-  if (!notificationSocket || !notificationSocket.connected) {
+function getConnectedSocket(): Socket | null {
+  const now = Date.now();
+
+  // If we have a connected socket, use it
+  if (notificationSocket?.connected) {
+    return notificationSocket;
+  }
+
+  // Don't hammer the connection — respect cooldown
+  if (now - lastConnectAttempt < RECONNECT_COOLDOWN) {
+    return null;
+  }
+
+  lastConnectAttempt = now;
+
+  try {
+    // Clean up old socket if exists
+    if (notificationSocket) {
+      notificationSocket.disconnect();
+      notificationSocket = null;
+    }
+
     notificationSocket = io('/?XTransformPort=3003', {
       transports: ['websocket', 'polling'],
-      forceNew: false,
-      reconnection: true,
-      reconnectionAttempts: 3,
-      reconnectionDelay: 1000,
-      timeout: 5000,
+      forceNew: true,
+      reconnection: false, // We manage reconnection ourselves
+      timeout: 3000,
     });
 
-    notificationSocket.on('connect', () => {
-      console.log('[NotificationClient] Connected to notification service');
+    notificationSocket.on('connect_error', () => {
+      // Silently ignore — the service might not be running
     });
 
     notificationSocket.on('disconnect', () => {
-      console.log('[NotificationClient] Disconnected from notification service');
+      // Socket disconnected — will try again on next call
     });
 
-    notificationSocket.on('connect_error', (error) => {
-      console.error('[NotificationClient] Connection error:', error);
-    });
+    // Don't wait for connection — return null, the notification
+    // will be delivered via the polling mechanism instead
+    return null;
+  } catch {
+    return null;
   }
-
-  return notificationSocket;
 }
 
 export interface NotificationPayload {
@@ -41,49 +74,37 @@ export interface NotificationPayload {
 }
 
 /**
- * Send a real-time notification to a specific user
- * @param payload - Notification details including userId, title, message, and type
- * @returns boolean indicating if the notification was sent successfully
+ * Send a real-time notification to a specific user.
+ * NON-BLOCKING: Returns immediately. If the socket service is
+ * unavailable, the notification will still be delivered via
+ * the database polling mechanism.
  */
 export function sendNotificationToUser(payload: NotificationPayload): boolean {
   try {
-    const socket = getNotificationSocket();
-    
-    if (!socket.connected) {
-      console.warn('[NotificationClient] Socket not connected, attempting to connect...');
-      socket.connect();
-      
-      // Wait briefly for connection
-      setTimeout(() => {
-        if (socket.connected) {
-          socket.emit('send-notification', {
-            ...payload,
-            type: payload.type || 'info',
-          });
-        } else {
-          console.error('[NotificationClient] Failed to connect to notification service');
-        }
-      }, 100);
-    } else {
-      socket.emit('send-notification', {
-        ...payload,
-        type: payload.type || 'info',
+    const socket = getConnectedSocket();
+
+    if (socket?.connected) {
+      socket.emit('notify-user', {
+        userId: payload.userId,
+        notification: {
+          title: payload.title,
+          message: payload.message,
+          type: payload.type || 'info',
+        },
       });
+      return true;
     }
-    
-    return true;
-  } catch (error) {
-    console.error('[NotificationClient] Error sending notification:', error);
+
+    // Socket not available — notification will be picked up by polling
+    return false;
+  } catch {
     return false;
   }
 }
 
 /**
- * Send a notification to multiple users
- * @param userIds - Array of user IDs to notify
- * @param title - Notification title
- * @param message - Notification message
- * @param type - Notification type
+ * Send a notification to multiple users.
+ * Non-blocking per user.
  */
 export function sendNotificationToUsers(
   userIds: string[],
@@ -97,10 +118,8 @@ export function sendNotificationToUsers(
 }
 
 /**
- * Broadcast a notification to all connected users
- * @param title - Notification title
- * @param message - Notification message
- * @param type - Notification type
+ * Broadcast a notification to all connected users.
+ * Non-blocking.
  */
 export function broadcastNotification(
   title: string,
@@ -108,15 +127,18 @@ export function broadcastNotification(
   type: 'info' | 'success' | 'warning' | 'error' = 'info'
 ): void {
   try {
-    const socket = getNotificationSocket();
-    socket.emit('broadcast-notification', { title, message, type });
-  } catch (error) {
-    console.error('[NotificationClient] Error broadcasting notification:', error);
+    const socket = getConnectedSocket();
+    if (socket?.connected) {
+      socket.emit('notify-all', { title, message, type });
+    }
+  } catch {
+    // Silently ignore
   }
 }
 
 /**
- * Notify a faculty member about schedule changes
+ * Notify a faculty member about schedule changes.
+ * Non-blocking — database notification is the primary delivery.
  */
 export function notifyScheduleChange(
   facultyId: string,

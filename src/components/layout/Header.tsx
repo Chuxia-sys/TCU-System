@@ -83,7 +83,7 @@ export function Header() {
     };
 
     doFetch(controller.signal);
-    const interval = setInterval(() => doFetch(controller.signal), 30000);
+    const interval = setInterval(() => doFetch(controller.signal), 60000);
     return () => {
       controller.abort();
       clearInterval(interval);

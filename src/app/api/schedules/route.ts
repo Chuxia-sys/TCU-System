@@ -33,9 +33,22 @@ export async function GET(request: NextRequest) {
       filterDepartmentId = session.user.departmentId || departmentId;
     }
 
+    // Pre-fetch section IDs for department filtering
+    // Firestore REST API doesn't support nested where clauses like
+    // { section: { departmentId: ... } }, so we resolve to section IDs first.
+    let departmentSectionIds: string[] | undefined;
+    if (filterDepartmentId) {
+      const deptSections = await db.section.findMany({
+        where: { departmentId: filterDepartmentId },
+      });
+      departmentSectionIds = deptSections.map(s => s.id);
+    }
+
     const schedules = await db.schedule.findMany({
       where: {
-        ...(filterDepartmentId && { section: { departmentId: filterDepartmentId } }),
+        ...(departmentSectionIds && departmentSectionIds.length > 0
+          ? { sectionId: { in: departmentSectionIds } }
+          : filterDepartmentId ? { sectionId: '__none__' } : {}),
         ...(filterFacultyId && { facultyId: filterFacultyId }),
         ...(sectionId && { sectionId }),
         ...(roomId && { roomId }),

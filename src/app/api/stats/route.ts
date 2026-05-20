@@ -37,6 +37,17 @@ export async function GET(request: NextRequest) {
     }
     // Faculty: no department filter (they only see their own schedules)
 
+    // Pre-fetch section IDs for department filtering
+    // Firestore REST API doesn't support nested where clauses like
+    // { section: { departmentId: ... } }, so we resolve to section IDs first.
+    let departmentSectionIds: string[] | undefined;
+    if (departmentFilter) {
+      const deptSections = await db.section.findMany({
+        where: { departmentId: departmentFilter },
+      });
+      departmentSectionIds = deptSections.map(s => s.id);
+    }
+
     // Get all relevant data
     const [users, schedules, conflicts, rooms, sections, subjects] = await Promise.all([
       db.user.findMany({
@@ -49,7 +60,9 @@ export async function GET(request: NextRequest) {
       }),
       db.schedule.findMany({
         where: {
-          ...(departmentFilter ? { section: { departmentId: departmentFilter } } : {}),
+          ...(departmentSectionIds && departmentSectionIds.length > 0
+            ? { sectionId: { in: departmentSectionIds } }
+            : departmentFilter ? { sectionId: '__none__' } : {}),
           ...(filterFacultyId && { facultyId: filterFacultyId }),
         },
         include: { subject: true, faculty: true, room: true, section: true },
@@ -57,7 +70,6 @@ export async function GET(request: NextRequest) {
       db.conflict.findMany({
         where: {
           resolved: false,
-          ...(departmentFilter ? { schedule: { section: { departmentId: departmentFilter } } } : {}),
         },
       }),
       db.room.findMany(),
@@ -69,10 +81,22 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+    // Filter conflicts by department in memory (Firestore can't join across collections)
+    let filteredConflicts = conflicts;
+    if (departmentSectionIds && departmentSectionIds.length > 0) {
+      const deptScheduleIds = new Set(schedules.map(s => s.id));
+      filteredConflicts = conflicts.filter(c =>
+        deptScheduleIds.has(c.scheduleId1) || deptScheduleIds.has(c.scheduleId2)
+      );
+    } else if (departmentFilter) {
+      // Department has no sections → no conflicts to show
+      filteredConflicts = [];
+    }
+
     // Calculate stats
     const totalFaculty = users.length;
     const totalSchedules = schedules.length;
-    const totalConflicts = conflicts.length;
+    const totalConflicts = filteredConflicts.length;
 
     // Faculty utilization
     const facultyLoads: Record<string, number> = {};
