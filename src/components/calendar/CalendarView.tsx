@@ -370,7 +370,7 @@ function OverlapOverflowCard({
       className={cn(
         'absolute rounded-lg overflow-hidden cursor-pointer',
         'border-l-[3px] border-zinc-300 dark:border-zinc-600',
-        'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700',
+        'bg-zinc-100 dark:bg-[#444951] hover:bg-zinc-200 dark:hover:bg-[#4D525A]',
         'text-zinc-600 dark:text-zinc-300',
         'transition-colors flex items-center justify-center',
       )}
@@ -391,7 +391,7 @@ function InfoTile({ icon, label, value, className }: { icon: React.ReactNode; la
   return (
     <div className={cn(
       'flex items-start gap-3 rounded-xl p-3',
-      'bg-[#F3F4F6] dark:bg-[#2A2A2E] border border-gray-200/60 dark:border-white/[0.08]',
+      'bg-[#F3F4F6] dark:bg-[#444951] border border-gray-200/60 dark:border-white/[0.08]',
       'transition-colors duration-200',
       className,
     )}>
@@ -1186,8 +1186,8 @@ export function CalendarView() {
               {/* ── Body ─────────────────────────────────────────────── */}
               <div className={cn(
                 'px-5 py-4 space-y-3.5',
-                // Light: white, Dark: #1C1C1E
-                'bg-white dark:bg-[#1C1C1E]',
+                // Light: white, Dark: #393E46
+                'bg-white dark:bg-[#393E46]',
                 'transition-colors duration-300',
               )}>
                 {/* Information Card Grid */}
@@ -1253,7 +1253,7 @@ export function CalendarView() {
               <div className={cn(
                 'px-5 py-3.5 flex items-center justify-end gap-2.5',
                 'border-t border-gray-100 dark:border-white/[0.08]',
-                'bg-white dark:bg-[#1C1C1E]',
+                'bg-white dark:bg-[#393E46]',
                 'transition-colors duration-300',
               )}>
                 <Button

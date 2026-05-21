@@ -89,24 +89,27 @@
 .dark {
   /* TCU — Premium Academic Theme — Dark Mode
      Solid dark colors only. NO gradients.
-     Premium, minimal, modern, clean, enterprise-grade. */
-  --background: #0F1115;
+     Premium, minimal, modern, clean, enterprise-grade.
+     Base dark background: #393E46 (blue-gray)
+     Palette derived from base for depth hierarchy:
+       Background  <  Muted/Secondary  <  Card  <  Accent/Border */
+  --background: #393E46;
   --foreground: #FFFFFF;
-  --card: #20242C;
+  --card: #444951;
   --card-foreground: #FFFFFF;
-  --popover: #20242C;
+  --popover: #444951;
   --popover-foreground: #FFFFFF;
   --primary: #C00018;             /* Rich Red (lighter for dark mode) */
   --primary-foreground: #FFFFFF;
-  --secondary: #1A1D24;
-  --secondary-foreground: #B8C0CC;
-  --muted: #1A1D24;
-  --muted-foreground: #B8C0CC;
-  --accent: #2A2F3A;
+  --secondary: #3E434B;
+  --secondary-foreground: #CBD5E1;
+  --muted: #3E434B;
+  --muted-foreground: #CBD5E1;
+  --accent: #4D525A;
   --accent-foreground: #FFFFFF;
   --destructive: #EF4444;
-  --border: #2A2F3A;
-  --input: #2A2F3A;
+  --border: #4D525A;
+  --input: #4D525A;
   --ring: #C00018;
   --gold: #D4AF37;
   --crimson: #C00018;
@@ -116,13 +119,13 @@
   --chart-3: #D4AF37;
   --chart-4: #A5001F;
   --chart-5: #6D0000;
-  --sidebar: #0F1115;
+  --sidebar: #393E46;
   --sidebar-foreground: #FFFFFF;
   --sidebar-primary: #C00018;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #2A2F3A;
+  --sidebar-accent: #4D525A;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #2A2F3A;
+  --sidebar-border: #4D525A;
   --sidebar-ring: #C00018;
 }
 
@@ -216,7 +219,7 @@
 
   /* Premium scrollbar — dark mode */
   .dark .premium-scrollbar::-webkit-scrollbar-track {
-    background: #1A1D24;
+    background: #3E434B;
   }
   .dark .premium-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
