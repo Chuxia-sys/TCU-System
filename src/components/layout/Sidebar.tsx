@@ -99,7 +99,15 @@ function NavButton({
         !isActive && collapsed && 'text-white/60 dark:text-[#94A3B8] hover:bg-white/[0.06] dark:hover:bg-white/[0.06] hover:text-white dark:hover:text-[#F8FAFC]',
       )}
     >
-      <Icon className={cn('shrink-0 transition-colors duration-200', collapsed ? 'h-[18px] w-[18px]' : 'h-[18px] w-[18px]', isActive ? 'text-red-500 dark:text-[#EF4444]' : '', !isActive ? '' : '', collapsed && isActive ? 'text-white' : '')} />
+      <Icon className={cn(
+        'shrink-0 transition-colors duration-200 h-[18px] w-[18px]',
+        // Active + collapsed: white icon on red bg
+        isActive && collapsed ? 'text-white' : '',
+        // Active + expanded: red accent icon
+        isActive && !collapsed ? 'text-red-500 dark:text-[#EF4444]' : '',
+        // Inactive: muted color
+        !isActive ? 'text-white/60 dark:text-[#94A3B8]' : '',
+      )} />
       {!collapsed && <span className="truncate">{item.label}</span>}
       {!collapsed && item.badge && (
         <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 dark:bg-[#EF4444] text-[10px] text-white font-semibold shadow-sm">
