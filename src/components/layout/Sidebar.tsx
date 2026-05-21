@@ -158,7 +158,7 @@ export function Sidebar() {
           className={cn(
             'flex items-center shrink-0 h-14 md:h-[72px] transition-colors duration-300',
             'bg-[#8B0000] dark:bg-[#111827] border-b border-[#6B0000]/50 dark:border-[#1E293B]',
-            sidebarCollapsed ? 'justify-center' : 'gap-2 px-4'
+            sidebarCollapsed ? '' : 'gap-2 px-4'
           )}
         >
           {/* Expanded logo + text */}
@@ -187,11 +187,11 @@ export function Sidebar() {
             </Button>
           )}
 
-          {/* Collapsed: logo + burger */}
+          {/* Collapsed: logo + burger side by side */}
           {sidebarCollapsed && (
-            <div className="flex flex-col items-center gap-2 w-full py-2">
-              <div className="bg-white/10 dark:bg-white/[0.06] backdrop-blur-sm rounded-xl p-1.5">
-                <Image src="/tcu-logo.png" alt="TCU Logo" width={26} height={26} className="object-contain" />
+            <div className="flex items-center gap-1.5 w-full px-2.5">
+              <div className="bg-white/10 dark:bg-white/[0.06] backdrop-blur-sm rounded-xl p-1.5 shrink-0">
+                <Image src="/tcu-logo.png" alt="TCU Logo" width={24} height={24} className="object-contain" />
               </div>
               <Button
                 variant="ghost"
