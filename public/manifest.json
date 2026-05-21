@@ -1,0 +1,95 @@
+{
+  "name": "TCU Scheduling System",
+  "short_name": "TCU Scheduling",
+  "description": "Intelligent academic scheduling and timetable management for Taguig City University with AI-powered conflict detection and automatic schedule generation.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your scheduling dashboard",
+      "url": "/?tab=dashboard",
+      "icons": [
+        {
+          "src": "/tcu-logo.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Schedules",
+      "short_name": "Schedules",
+      "description": "Manage your schedules",
+      "url": "/?tab=schedules",
+      "icons": [
+        {
+          "src": "/tcu-logo.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Conflicts",
+      "short_name": "Conflicts",
+      "description": "View and resolve scheduling conflicts",
+      "url": "/?tab=conflicts",
+      "icons": [
+        {
+          "src": "/tcu-logo.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "icons": [
+    {
+      "src": "/tcu-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/tcu-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/tcu-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/tcu-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "screenshots": [
+    {
+      "src": "/tcu-logo.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "TCU Scheduling Dashboard"
+    },
+    {
+      "src": "/tcu-logo.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "TCU Scheduling Dashboard"
+    }
+  ]
+}

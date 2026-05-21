@@ -302,7 +302,7 @@ export function Header() {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-xl text-white/70 hover:text-white hover:bg-white/10 dark:hover:bg-white/[0.08] transition-all duration-200">
+            <Button variant="ghost" className="relative h-9 w-9 rounded-xl text-white/70 hover:text-white hover:bg-white/10 dark:hover:bg-white/[0.08] transition-all duration-200 border border-white/40 hover:border-white/60 dark:hover:border-white/50">
               <Avatar className="h-8 w-8 ring-2 ring-white/20 dark:ring-white/10">
                 <AvatarImage src={userImage || ''} alt={session?.user?.name || ''} />
                 <AvatarFallback className="bg-white/15 dark:bg-white/10 text-white text-xs font-semibold">
