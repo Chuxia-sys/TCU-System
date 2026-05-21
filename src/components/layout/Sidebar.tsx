@@ -165,14 +165,14 @@ export function Sidebar() {
         <div
           className={cn(
             'flex items-center shrink-0 h-14 md:h-[72px] transition-colors duration-300',
-            'bg-[#ff0000] dark:header-gradient border-b border-[#cc0000]/50 dark:border-[#991B1B]/50',
+            'bg-[#8b0000] dark:header-gradient border-b border-[#6b0000]/50 dark:border-[#991B1B]/50',
             sidebarCollapsed ? '' : 'gap-2 px-4'
           )}
         >
           {/* Expanded logo + text */}
           {!sidebarCollapsed && (
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="bg-white/10 dark:bg-white/[0.06] backdrop-blur-sm rounded-xl p-1.5 shrink-0">
+              <div className="bg-white rounded-lg p-1 shrink-0">
                 <Image src="/tcu-logo.png" alt="TCU Logo" width={32} height={32} className="object-contain" />
               </div>
               <div className="flex flex-col min-w-0">
@@ -198,7 +198,7 @@ export function Sidebar() {
           {/* Collapsed: logo + burger side by side */}
           {sidebarCollapsed && (
             <div className="flex items-center gap-1.5 w-full px-2.5">
-              <div className="bg-white/10 dark:bg-white/[0.06] backdrop-blur-sm rounded-xl p-1.5 shrink-0">
+              <div className="bg-white rounded-lg p-1 shrink-0">
                 <Image src="/tcu-logo.png" alt="TCU Logo" width={24} height={24} className="object-contain" />
               </div>
               <Button
