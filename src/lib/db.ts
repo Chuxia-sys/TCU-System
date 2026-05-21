@@ -29,15 +29,24 @@ import {
 // ============================================================
 // The system environment may set DATABASE_URL to a SQLite path.
 // We override it here to prevent any accidental Prisma/SQLite usage.
+//
+// This guard runs at THREE levels:
+//   1. next.config.ts (earliest — before Next.js boots)
+//   2. src/instrumentation.ts (server startup — before routes)
+//   3. This file (runtime — every time db.ts is imported)
+//
+// ALL THREE levels enforce: DATABASE_URL = 'file:/dev/null'
 if (typeof process !== 'undefined' && process.env) {
   const currentUrl = process.env.DATABASE_URL || '';
-  if (currentUrl && !currentUrl.includes('dev/null')) {
+  if (!currentUrl.includes('dev/null')) {
     console.warn(
       `[DB GUARD] ⚠️ DATABASE_URL was "${currentUrl}" — overriding to /dev/null. ` +
       `This project uses Firebase Firestore exclusively.`
     );
     process.env.DATABASE_URL = 'file:/dev/null';
   }
+  // Set guard flag so instrumentation.ts knows this module is active
+  process.env.__DB_GUARD_ACTIVE = 'true';
 }
 
 // ============================================================

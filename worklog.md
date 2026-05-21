@@ -243,3 +243,58 @@ Stage Summary:
 - Dual-action footer with theme-colored primary button
 - Full dark mode compatibility (bg-[#1a1d26] body, proper border/text colors)
 - All Firebase Firestore connections preserved
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Ensure Prisma client always connects to Firebase Firestore, not SQLite (system DATABASE_URL overrides .env to SQLite path)
+
+Work Log:
+- Investigated full database architecture: project uses custom Firestore REST API adapter in src/lib/db.ts, NOT Prisma Client
+- Confirmed @prisma/client is NOT installed — all API routes use `import { db } from '@/lib/db'`
+- Found .env had DATABASE_URL=file:/home/z/my-project/db/custom.db (SQLite path from system override)
+- Found existing guards in next.config.ts and db.ts but wanted to make them more robust
+- Created THREE-LAYER defense system to ensure Firestore-only database access:
+
+Changes Made:
+
+1. .env:
+   - Changed DATABASE_URL from `file:/home/z/my-project/db/custom.db` to `file:/dev/null`
+   - Added comment explaining this project uses Firebase Firestore exclusively
+
+2. src/instrumentation.ts (NEW FILE):
+   - Next.js instrumentation hook that runs at server startup BEFORE any route handlers
+   - Layer 1: Neutralizes DATABASE_URL if system env overrides it to SQLite
+   - Layer 2: Validates Firestore connection on server startup
+   - Sets __FIRESTORE_GUARD_ACTIVE flag for other modules to check
+
+3. next.config.ts:
+   - Added webpack alias: @prisma/client → src/lib/prisma-firestore-bridge.ts
+   - Added webpack alias: .prisma/client → src/lib/prisma-firestore-bridge.ts
+   - This intercepts ANY accidental @prisma/client import and redirects to Firestore adapter
+
+4. src/lib/prisma-firestore-bridge.ts (NEW FILE):
+   - Compatibility stub that re-exports `db` from Firestore adapter as `PrismaClient`
+   - Provides Prisma type stubs (Prisma.ModelName, Prisma.SortOrder, etc.)
+   - Logs warning in development if accidentally imported (should use @/lib/db directly)
+
+5. src/lib/db.ts:
+   - Updated runtime guard comments to document the three-layer defense system
+   - Added __DB_GUARD_ACTIVE env flag
+   - Made the guard more robust (checks for dev/null in URL rather than empty string)
+
+Verification:
+- Dev server starts successfully with all three guard layers active
+- Log output confirms: [CONFIG] overriding DATABASE_URL, [INSTRUMENTATION] Firestore connected, [INSTRUMENTATION] guard active
+- Health endpoint shows Firebase Firestore connected
+- Lint: 0 errors (1 pre-existing TanStack Table warning)
+- Server responds with 200 on all routes
+
+Stage Summary:
+- THREE-LAYER defense system ensures DATABASE_URL is always /dev/null:
+  1. next.config.ts (earliest — before Next.js boots)
+  2. src/instrumentation.ts (server startup — before routes)
+  3. src/lib/db.ts (runtime — every time db module is imported)
+- WEBPACK ALIAS intercepts accidental @prisma/client imports → redirects to Firestore adapter
+- Prisma-Firestore Bridge provides compatibility for any code expecting Prisma Client API
+- All Firebase Firestore connections fully functional
