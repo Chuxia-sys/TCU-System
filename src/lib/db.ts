@@ -59,11 +59,64 @@ const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_
 let connectionValidated = false;
 let lastValidationError: string | null = null;
 
+// Configuration for request handling
+const REQUEST_CONFIG = {
+  TIMEOUT_MS: 15000, // 15 seconds per request
+  MAX_RETRIES: 3,
+  BACKOFF_INITIAL_MS: 500,
+  BACKOFF_MAX_MS: 5000,
+  MAX_CONCURRENT_RELATIONS: 5, // Limit concurrent relation fetches
+};
+
 // Helper: append API key to a URL as a query parameter
 function withApiKey(url: string): string {
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}key=${FIREBASE_API_KEY}`;
 }
+
+// ============================================================
+// Concurrency Control (Semaphore)
+// ============================================================
+
+class Semaphore {
+  private available: number;
+  private waitQueue: (() => void)[] = [];
+
+  constructor(max: number) {
+    this.available = max;
+  }
+
+  async acquire(): Promise<void> {
+    if (this.available > 0) {
+      this.available--;
+      return;
+    }
+
+    await new Promise((resolve) => {
+      this.waitQueue.push(resolve);
+    });
+  }
+
+  release(): void {
+    this.available++;
+    const resolve = this.waitQueue.shift();
+    if (resolve) {
+      this.available--;
+      resolve();
+    }
+  }
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    await this.acquire();
+    try {
+      return await fn();
+    } finally {
+      this.release();
+    }
+  }
+}
+
+const relationSemaphore = new Semaphore(REQUEST_CONFIG.MAX_CONCURRENT_RELATIONS);
 
 // ============================================================
 // Firestore Connection Validation
@@ -79,26 +132,36 @@ export async function validateFirestoreConnection(): Promise<{
   error?: string 
 }> {
   try {
-    // Try a lightweight read to verify Firestore access using API key
-    const response = await fetch(
-      withApiKey(`${FIRESTORE_BASE}/departments?pageSize=1`)
-    );
-    
-    // 200 = OK, 404 = collection doesn't exist yet but access works
-    if (response.status === 200 || response.status === 404) {
-      connectionValidated = true;
-      lastValidationError = null;
-      console.log('[Firestore] ✅ Connected to Firebase Firestore (project: ' + FIREBASE_PROJECT_ID + ')');
-      return { connected: true, project: FIREBASE_PROJECT_ID };
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_CONFIG.TIMEOUT_MS);
+
+    try {
+      // Try a lightweight read to verify Firestore access using API key
+      const response = await fetch(
+        withApiKey(`${FIRESTORE_BASE}/departments?pageSize=1`),
+        { signal: controller.signal }
+      );
+      
+      // 200 = OK, 404 = collection doesn't exist yet but access works
+      if (response.status === 200 || response.status === 404) {
+        connectionValidated = true;
+        lastValidationError = null;
+        console.log('[Firestore] ✅ Connected to Firebase Firestore (project: ' + FIREBASE_PROJECT_ID + ')');
+        return { connected: true, project: FIREBASE_PROJECT_ID };
+      }
+      
+      const data = await response.json().catch(() => ({}));
+      const errorMsg = data.error?.message || `HTTP ${response.status}`;
+      lastValidationError = errorMsg;
+      return { connected: false, project: FIREBASE_PROJECT_ID, error: errorMsg };
+    } finally {
+      clearTimeout(timeoutId);
     }
-    
-    const data = await response.json().catch(() => ({}));
-    const errorMsg = data.error?.message || `HTTP ${response.status}`;
-    lastValidationError = errorMsg;
-    return { connected: false, project: FIREBASE_PROJECT_ID, error: errorMsg };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     lastValidationError = errorMsg;
+    console.error('[Firestore] ❌ Connection validation failed:', errorMsg);
     return { connected: false, project: FIREBASE_PROJECT_ID, error: errorMsg };
   }
 }
@@ -118,8 +181,8 @@ export function getFirestoreStatus(): {
   };
 }
 
-// Make request to Firestore REST API using API key authentication
-async function firestoreRequest(path: string, method: string = 'GET', body?: any): Promise<any> {
+// Make request to Firestore REST API using API key authentication with retry and timeout
+async function firestoreRequest(path: string, method: string = 'GET', body?: any, retryCount: number = 0): Promise<any> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -127,22 +190,62 @@ async function firestoreRequest(path: string, method: string = 'GET', body?: any
   const baseUrl = path.startsWith('http') ? path : `${FIRESTORE_BASE}/${path}`;
   const url = withApiKey(baseUrl);
 
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_CONFIG.TIMEOUT_MS);
 
-  if (response.status === 404) {
-    return null;
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    const data = await response.json();
+    if (response.status >= 400) {
+      throw new Error(`Firestore REST error ${response.status}: ${data.error?.message || JSON.stringify(data)}`);
+    }
+
+    return data;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+
+    // Determine if error is retryable
+    const isRetryable =
+      error.name === 'AbortError' || // Timeout
+      error.code === 'ECONNREFUSED' ||
+      error.code === 'ECONNRESET' ||
+      error.code === 'ETIMEDOUT' ||
+      (error.cause?.code === 'UND_ERR_CONNECT_TIMEOUT');
+
+    if (isRetryable && retryCount < REQUEST_CONFIG.MAX_RETRIES) {
+      const backoffMs = Math.min(
+        REQUEST_CONFIG.BACKOFF_INITIAL_MS * Math.pow(2, retryCount),
+        REQUEST_CONFIG.BACKOFF_MAX_MS
+      );
+      console.log(
+        `[DB] Retrying request (attempt ${retryCount + 1}/${REQUEST_CONFIG.MAX_RETRIES}) after ${backoffMs}ms: ${path}`
+      );
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      return firestoreRequest(path, method, body, retryCount + 1);
+    }
+
+    // Log detailed error info
+    const errorType = error.name === 'AbortError' ? 'TIMEOUT' : error.code || error.type || 'UNKNOWN';
+    console.error(
+      `[DB] Fatal error after ${retryCount} retries (${errorType}): ${path}`,
+      { error: error.message, code: error.code }
+    );
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const data = await response.json();
-  if (response.status >= 400) {
-    throw new Error(`Firestore REST error ${response.status}: ${data.error?.message || JSON.stringify(data)}`);
-  }
-
-  return data;
 }
 
 // ============================================================
@@ -256,7 +359,7 @@ type ModelRelations = Record<string, RelationConfig>;
 // ============================================================
 
 function createModel(name: string, uniqueFields: string[], relations: ModelRelations = {}) {
-  // Resolve includes (fetch related documents)
+  // Resolve includes (fetch related documents) with concurrency control
   async function resolveIncludes(
     data: Record<string, any>,
     include?: Record<string, boolean | any>
@@ -265,49 +368,54 @@ function createModel(name: string, uniqueFields: string[], relations: ModelRelat
 
     const result = { ...data };
 
+    // Use semaphore to limit concurrent relation fetches
     await Promise.all(
-      Object.entries(include).map(async ([key, val]) => {
-        // Handle Prisma-style _count
-        if (key === '_count') {
-          const countResult: Record<string, number> = {};
-          const selectFields = typeof val === 'object' && val !== null && val.select ? val.select : {};
-          
-          for (const [field, enabled] of Object.entries(selectFields)) {
-            if (enabled && relations[field] && relations[field].type === 'many') {
-              try {
-                const count = await runQuery(
-                  relations[field].collection,
-                  [{ field: relations[field].foreignKey, op: 'EQUAL', value: data.id }],
-                  undefined,
-                  10000
-                );
-                countResult[field] = count.length;
-              } catch {
-                countResult[field] = 0;
+      Object.entries(include).map(([key, val]) =>
+        relationSemaphore.run(async () => {
+          // Handle Prisma-style _count
+          if (key === '_count') {
+            const countResult: Record<string, number> = {};
+            const selectFields = typeof val === 'object' && val !== null && val.select ? val.select : {};
+            
+            for (const [field, enabled] of Object.entries(selectFields)) {
+              if (enabled && relations[field] && relations[field].type === 'many') {
+                try {
+                  const count = await runQuery(
+                    relations[field].collection,
+                    [{ field: relations[field].foreignKey, op: 'EQUAL', value: data.id }],
+                    undefined,
+                    10000
+                  );
+                  countResult[field] = count.length;
+                } catch {
+                  countResult[field] = 0;
+                }
               }
             }
+            result._count = countResult;
+            return;
           }
-          result._count = countResult;
-          return;
-        }
 
-        const relation = relations[key];
-        if (!relation) return;
+          const relation = relations[key];
+          if (!relation) return;
 
-        try {
-          if (relation.type === 'one' && relation.localKey) {
-            const foreignId = data[relation.localKey];
-            if (foreignId) {
-              const doc = await firestoreRequest(`${relation.collection}/${foreignId}`);
-              if (doc) {
-                const relatedData = parseDocument(doc);
-                if (relatedData) {
-                  if (typeof val === 'object' && val !== null && val.include) {
-                    // For nested includes, we need to get the related model's relations
-                    // For now, just resolve one level deep
-                    result[key] = relatedData;
+          try {
+            if (relation.type === 'one' && relation.localKey) {
+              const foreignId = data[relation.localKey];
+              if (foreignId) {
+                const doc = await firestoreRequest(`${relation.collection}/${foreignId}`);
+                if (doc) {
+                  const relatedData = parseDocument(doc);
+                  if (relatedData) {
+                    if (typeof val === 'object' && val !== null && val.include) {
+                      // For nested includes, we need to get the related model's relations
+                      // For now, just resolve one level deep
+                      result[key] = relatedData;
+                    } else {
+                      result[key] = relatedData;
+                    }
                   } else {
-                    result[key] = relatedData;
+                    result[key] = null;
                   }
                 } else {
                   result[key] = null;
@@ -315,28 +423,26 @@ function createModel(name: string, uniqueFields: string[], relations: ModelRelat
               } else {
                 result[key] = null;
               }
-            } else {
-              result[key] = null;
+            } else if (relation.type === 'many') {
+              // Query related documents where foreignKey equals this document's id
+              const queryResults = await runQuery(
+                relation.collection,
+                [{ field: relation.foreignKey, op: 'EQUAL', value: data.id }],
+                undefined,
+                1000
+              );
+              if (typeof val === 'object' && val !== null && val.include) {
+                result[key] = queryResults;
+              } else {
+                result[key] = queryResults;
+              }
             }
-          } else if (relation.type === 'many') {
-            // Query related documents where foreignKey equals this document's id
-            const queryResults = await runQuery(
-              relation.collection,
-              [{ field: relation.foreignKey, op: 'EQUAL', value: data.id }],
-              undefined,
-              1000
-            );
-            if (typeof val === 'object' && val !== null && val.include) {
-              result[key] = queryResults;
-            } else {
-              result[key] = queryResults;
-            }
+          } catch (error) {
+            console.error(`[DB] Error resolving relation ${key}:`, error);
+            result[key] = null;
           }
-        } catch (error) {
-          console.error(`[DB] Error resolving relation ${key}:`, error);
-          result[key] = null;
-        }
-      })
+        })
+      )
     );
 
     return result;
