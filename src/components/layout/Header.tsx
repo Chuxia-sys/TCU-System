@@ -157,7 +157,7 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 md:h-[72px] items-center gap-2 sm:gap-4 border-b border-[#6b0000]/50 bg-[#8b0000] dark:border-transparent dark:header-gradient px-4 lg:px-6 shrink-0">
+    <header className="sticky top-0 z-30 flex h-14 md:h-[72px] items-center gap-2 sm:gap-4 border-b-0 bg-[#8b0000] dark:border-transparent dark:header-gradient px-4 lg:px-6 shrink-0">
       {/* Logo for mobile */}
       <div className="flex items-center gap-2.5 md:hidden shrink-0 ml-1">
         <div className="bg-white rounded-lg p-1 shrink-0">
@@ -177,11 +177,11 @@ export function Header() {
 
       {/* Search bar — hidden on mobile */}
       <div className="hidden md:block w-full max-w-md">
-        <div className="relative glass-search rounded-full border border-white/10 dark:border-white/[0.06] transition-all duration-300">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40 dark:text-white/30" />
+        <div className="relative rounded-full bg-white/15 dark:bg-white/[0.08] border border-white/20 dark:border-white/[0.08] transition-all duration-300 focus-within:bg-white/20 dark:focus-within:bg-white/[0.12] focus-within:border-white/30 dark:focus-within:border-[#EF4444]/30 focus-within:shadow-[0_0_0_2px_rgba(239,68,68,0.2)]">
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60 dark:text-white/50" />
           <Input
             placeholder="Search schedules, faculty, rooms..."
-            className="pl-10 h-10 bg-transparent border-0 text-white placeholder:text-white/40 dark:placeholder:text-white/30 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full text-sm"
+            className="pl-10 h-10 bg-transparent border-0 text-white placeholder:text-white/60 dark:placeholder:text-white/50 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full text-sm"
           />
         </div>
       </div>

@@ -296,14 +296,8 @@
     box-shadow: 0 0 30px rgba(239, 68, 68, 0.15);
   }
 
-  /* Glassmorphism effect for header search in dark mode */
-  .dark .glass-search {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
+  /* Glassmorphism effect for header search — dark mode focus glow */
   .dark .glass-search:focus-within {
-    background: rgba(255, 255, 255, 0.12);
     box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3), 0 0 20px rgba(239, 68, 68, 0.1);
   }
 }
