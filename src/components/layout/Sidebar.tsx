@@ -161,11 +161,13 @@ export function Sidebar() {
           sidebarCollapsed ? 'w-[68px]' : 'w-[260px]'
         )}
       >
-        {/* ── Header: Logo + Burger ── */}
+        {/* ── Header: Logo + Burger (Fixed) ── */}
         <div
           className={cn(
             'flex items-center shrink-0 h-14 md:h-[72px] transition-colors duration-300',
             'bg-[#8b0000] dark:header-gradient border-0 border-none outline-none shadow-none',
+            'fixed top-0 z-50',
+            sidebarCollapsed ? 'w-[68px]' : 'w-[260px]',
             sidebarCollapsed ? '' : 'gap-2 px-4'
           )}
         >
@@ -215,7 +217,7 @@ export function Sidebar() {
         </div>
 
         {/* ── Scrollable Navigation Area ── */}
-        <ScrollArea className="flex-1 bg-card dark:bg-[#111827] premium-scrollbar overflow-x-hidden">
+        <ScrollArea className="flex-1 bg-card dark:bg-[#111827] premium-scrollbar overflow-x-hidden mt-[72px]">
           <div className="py-4">
             {/* Section heading */}
             {!sidebarCollapsed && filteredNavItems.length > 0 && (

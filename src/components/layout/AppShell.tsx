@@ -48,8 +48,8 @@ export function AppShell({ children }: AppShellProps) {
         {/* Header */}
         <Header />
         
-        {/* Main Content with bottom padding for mobile nav */}
-        <main className="flex-1 p-4 sm:p-5 lg:p-8 pb-24 md:pb-8">
+        {/* Main Content with bottom padding for mobile nav and top padding for fixed header */}
+        <main className="flex-1 p-4 sm:p-5 lg:p-8 pb-24 md:pb-8 mt-[72px]">
           {children}
         </main>
 
