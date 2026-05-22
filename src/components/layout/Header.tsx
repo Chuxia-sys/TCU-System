@@ -28,7 +28,6 @@ import {
   Trash2,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useAppStore } from '@/store';
 import { useState, useEffect } from 'react';
 import type { Notification } from '@/types';
 import { safeJson } from '@/lib/utils';
