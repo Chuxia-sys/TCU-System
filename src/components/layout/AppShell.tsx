@@ -27,7 +27,7 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background dark:bg-[#0F172A]">
+    <div className="h-screen h-dvh flex flex-col bg-background dark:bg-[#0F172A] overflow-hidden">
       {/* Notification Provider for real-time toast notifications */}
       <NotificationProvider />
       
@@ -37,7 +37,7 @@ export function AppShell({ children }: AppShellProps) {
       {/* Main Content Area */}
       <div
         className={cn(
-          'flex-1 flex flex-col transition-all duration-300 ease-in-out',
+          'flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
           // Desktop: apply margin for sidebar
           'md:transition-all',
           sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[260px]',
@@ -48,8 +48,8 @@ export function AppShell({ children }: AppShellProps) {
         {/* Header */}
         <Header />
         
-        {/* Main Content with bottom padding for mobile nav and top padding for fixed header */}
-        <main className="flex-1 p-4 sm:p-5 lg:p-8 pb-24 md:pb-8 mt-[72px]">
+        {/* Main Content with bottom padding for mobile nav — scrollable container */}
+        <main className="flex-1 p-4 sm:p-5 lg:p-8 pb-24 md:pb-8 overflow-y-auto premium-scrollbar">
           {children}
         </main>
 

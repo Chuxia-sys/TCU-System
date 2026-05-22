@@ -2,6 +2,8 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useTheme } from 'next-themes';
+import { useAppStore } from '@/store';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +36,7 @@ import { safeJson } from '@/lib/utils';
 export function Header() {
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
-  const { setViewMode } = useAppStore();
+  const { setViewMode, sidebarCollapsed } = useAppStore();
   const [mounted, setMounted] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -157,7 +159,14 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 md:h-[72px] items-center gap-2 sm:gap-4 border-b-0 bg-[#8b0000] dark:border-transparent dark:header-gradient px-4 lg:px-6 shrink-0 overflow-hidden">
+    <header className={cn(
+      'fixed top-0 right-0 z-40 flex h-14 md:h-[72px] items-center gap-2 sm:gap-4 border-b-0 bg-[#8b0000] dark:border-transparent dark:header-gradient px-4 lg:px-6 shrink-0 overflow-hidden',
+      // Mobile: full width
+      'left-0',
+      // Desktop: adjust left based on sidebar state
+      'md:left-auto',
+      sidebarCollapsed ? 'md:left-[68px]' : 'md:left-[260px]'
+    )}>
       {/* Logo for mobile */}
       <div className="flex items-center gap-2.5 md:hidden shrink-0 ml-1">
         <div className="bg-white rounded-lg p-1 shrink-0">

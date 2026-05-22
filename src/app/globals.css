@@ -135,9 +135,20 @@
   * {
     @apply border-border outline-ring/50;
   }
+  
+  /* Prevent global page scrolling — fixed viewport height */
+  html {
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
   }
   
   /* Hide scrollbars globally while keeping scrolling functional */
@@ -162,11 +173,6 @@
   
   ::-webkit-scrollbar-corner {
     display: none;
-  }
-  
-  /* Ensure overflow elements scroll without showing scrollbar */
-  html, body {
-    overflow: auto;
   }
   
   /* Premium heading typography */

@@ -157,7 +157,7 @@ export function Sidebar() {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          'hidden md:flex fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-in-out flex-col',
+          'hidden md:flex fixed left-0 top-0 z-40 h-screen h-dvh transition-all duration-300 ease-in-out flex-col overflow-hidden',
           sidebarCollapsed ? 'w-[68px]' : 'w-[260px]'
         )}
       >
