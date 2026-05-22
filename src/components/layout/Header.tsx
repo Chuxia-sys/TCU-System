@@ -159,12 +159,7 @@ export function Header() {
 
   return (
     <header className={cn(
-      'fixed top-0 right-0 z-40 flex h-14 md:h-[72px] items-center gap-2 sm:gap-4 border-b-0 bg-[#8b0000] dark:border-transparent dark:header-gradient px-4 lg:px-6 shrink-0 overflow-hidden',
-      // Mobile: full width
-      'left-0',
-      // Desktop: adjust left based on sidebar state
-      'md:left-auto',
-      sidebarCollapsed ? 'md:left-[68px]' : 'md:left-[260px]'
+      'fixed top-0 left-0 right-0 z-50 flex h-14 md:h-[72px] items-center gap-2 sm:gap-4 border-b-0 bg-[#8b0000] dark:border-transparent dark:header-gradient px-4 lg:px-6 shrink-0 overflow-hidden'
     )}>
       {/* Logo for mobile */}
       <div className="flex items-center gap-2.5 md:hidden shrink-0 ml-1">

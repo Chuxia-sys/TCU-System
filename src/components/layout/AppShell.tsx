@@ -27,17 +27,20 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   return (
-    <div className="h-screen h-dvh flex flex-col bg-background dark:bg-[#0F172A] overflow-hidden">
+    <div className="h-dvh w-screen bg-background dark:bg-[#0F172A] flex flex-col overflow-hidden">
       {/* Notification Provider for real-time toast notifications */}
       <NotificationProvider />
       
-      {/* Desktop Sidebar */}
+      {/* FIXED: Header (top-0, left-0, right-0, full width) */}
+      <Header />
+      
+      {/* FIXED: Sidebar (positioned absolutely, top below header) */}
       <Sidebar />
       
-      {/* Main Content Area */}
+      {/* Main Content Area - ONLY scrollable element */}
       <div
         className={cn(
-          'flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
+          'flex-1 flex flex-col overflow-hidden',
           // Desktop: apply margin for sidebar
           'md:transition-all',
           sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[260px]',
@@ -45,16 +48,14 @@ export function AppShell({ children }: AppShellProps) {
           'ml-0'
         )}
       >
-        {/* Header */}
-        <Header />
-        
-        {/* Main Content with bottom padding for mobile nav — scrollable container */}
-        <main className="flex-1 p-4 sm:p-5 lg:p-8 pb-24 md:pb-8 overflow-y-auto premium-scrollbar">
-          {children}
+        {/* Main Content with bottom padding for mobile nav — scrollable only content */}
+        <main className="flex-1 flex flex-col overflow-y-auto premium-scrollbar">
+          <div className="p-4 sm:p-5 lg:p-8 pb-24 md:pb-8">
+            {children}
+          </div>
+          {/* Footer */}
+          <Footer className="mt-auto" />
         </main>
-
-        {/* Footer */}
-        <Footer />
       </div>
       
       {/* Mobile Bottom Navigation */}

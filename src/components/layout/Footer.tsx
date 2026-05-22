@@ -2,12 +2,17 @@
 
 import React from 'react';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
-export function Footer() {
+interface FooterProps {
+  className?: string;
+}
+
+export function Footer({ className }: FooterProps) {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="relative border-t bg-background dark:bg-[#0F172A] border-border dark:border-[#1E293B]">
+    <footer className={cn("relative border-t bg-background dark:bg-[#0F172A] border-border dark:border-[#1E293B]", className)}>
       {/* Subtle top accent line */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-500/30 dark:via-[#EF4444]/20 to-transparent" />
       

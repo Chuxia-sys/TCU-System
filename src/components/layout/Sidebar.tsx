@@ -157,17 +157,16 @@ export function Sidebar() {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          'hidden md:flex fixed left-0 top-0 z-40 h-screen h-dvh transition-all duration-300 ease-in-out flex-col overflow-hidden',
+          'hidden md:flex fixed left-0 z-40 transition-all duration-300 ease-in-out flex-col overflow-hidden',
+          'top-[72px] bottom-0',
           sidebarCollapsed ? 'w-[68px]' : 'w-[260px]'
         )}
       >
-        {/* ── Header: Logo + Burger (Fixed) ── */}
+        {/* ── Sidebar Header: Logo + Burger ── */}
         <div
           className={cn(
             'flex items-center shrink-0 h-14 md:h-[72px] transition-colors duration-300',
             'bg-[#8b0000] dark:header-gradient border-0 border-none outline-none shadow-none',
-            'fixed top-0 z-50',
-            sidebarCollapsed ? 'w-[68px]' : 'w-[260px]',
             sidebarCollapsed ? '' : 'gap-2 px-4'
           )}
         >
@@ -217,7 +216,7 @@ export function Sidebar() {
         </div>
 
         {/* ── Scrollable Navigation Area ── */}
-        <ScrollArea className="flex-1 bg-card dark:bg-[#111827] premium-scrollbar overflow-x-hidden mt-[72px]">
+        <ScrollArea className="flex-1 bg-card dark:bg-[#111827] premium-scrollbar overflow-x-hidden">
           <div className="py-4">
             {/* Section heading */}
             {!sidebarCollapsed && filteredNavItems.length > 0 && (

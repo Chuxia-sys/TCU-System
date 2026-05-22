@@ -137,7 +137,10 @@
   }
   
   /* Prevent global page scrolling — fixed viewport height */
-  html {
+  html,
+  body,
+  #__next,
+  #root {
     height: 100%;
     height: 100dvh;
     overflow: hidden;
@@ -146,9 +149,6 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
-    height: 100%;
-    height: 100dvh;
-    overflow: hidden;
   }
   
   /* Hide scrollbars globally while keeping scrolling functional */
