@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-session';
 import { db } from '@/lib/db';
+import { optimizationService } from '@/lib/firestore-optimization-service';
 
 // GET /api/departments
 export async function GET() {
@@ -8,17 +9,31 @@ export async function GET() {
     const session = await getAuthSession();
     const isAuthenticated = !!session?.user?.id;
 
-    const departments = await db.department.findMany({
-      ...(isAuthenticated
-        ? {
-            include: {
-              _count: { select: { users: true, subjects: true, sections: true } },
-            },
-          }
-        : {
-            select: { id: true, name: true, code: true },
-          }),
-      orderBy: { name: 'asc' },
+    const cacheKey = isAuthenticated ? 'departments:full' : 'departments:public';
+    const cacheTtlMs = 10 * 60 * 1000;
+
+    const departments = await optimizationService.executeOptimizedQuery({
+      descriptor: {
+        collection: 'departments',
+        orderBy: [{ field: 'name', direction: 'asc' }],
+        label: 'departments-list',
+      },
+      cacheKey,
+      cacheTtlMs,
+      fetcher: async () => {
+        return db.department.findMany({
+          ...(isAuthenticated
+            ? {
+                include: {
+                  _count: { select: { users: true, subjects: true, sections: true } },
+                },
+              }
+            : {
+                select: { id: true, name: true, code: true },
+              }),
+          orderBy: { name: 'asc' },
+        });
+      },
     });
 
     return NextResponse.json(departments);
@@ -56,6 +71,8 @@ export async function POST(request: NextRequest) {
     const department = await db.department.create({
       data: { name, code, college },
     });
+
+    optimizationService.invalidateCache(/^departments:/);
 
     await db.auditLog.create({
       data: {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-session';
 import { getDepartmentFilter } from '@/lib/dept-auth';
 import { db } from '@/lib/db';
+import { optimizationService } from '@/lib/firestore-optimization-service';
 
 // GET /api/subjects
 export async function GET(request: NextRequest) {
@@ -19,13 +20,25 @@ export async function GET(request: NextRequest) {
     const forcedDepartmentId = getDepartmentFilter(session as Parameters<typeof getDepartmentFilter>[0]);
     const departmentId = forcedDepartmentId || queryDepartmentId;
 
-    const subjects = await db.subject.findMany({
-      where: departmentId ? { departmentId } : undefined,
-      include: {
-        department: true,
-        _count: { select: { schedules: true } },
+    const subjects = await optimizationService.executeOptimizedQuery({
+      descriptor: {
+        collection: 'subjects',
+        where: departmentId ? { departmentId } : undefined,
+        orderBy: [{ field: 'subjectCode', direction: 'asc' }],
+        label: 'subjects-list',
       },
-      orderBy: { subjectCode: 'asc' },
+      cacheKey: departmentId ? `subjects:dept:${departmentId}` : 'subjects:all',
+      cacheTtlMs: 10 * 60 * 1000,
+      fetcher: async () => {
+        return db.subject.findMany({
+          where: departmentId ? { departmentId } : undefined,
+          include: {
+            department: true,
+            _count: { select: { schedules: true } },
+          },
+          orderBy: { subjectCode: 'asc' },
+        });
+      },
     });
 
     const formattedSubjects = subjects.map(subject => ({
@@ -84,6 +97,9 @@ export async function POST(request: NextRequest) {
       },
       include: { department: true },
     });
+
+    optimizationService.invalidateCache(/^subjects:/);
+    optimizationService.invalidateCache(/^departments:/);
 
     await db.auditLog.create({
       data: {

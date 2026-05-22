@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-session';
 import { db } from '@/lib/db';
+import { optimizationService } from '@/lib/firestore-optimization-service';
 
 // GET /api/rooms
 export async function GET() {
@@ -10,11 +11,22 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const rooms = await db.room.findMany({
-      include: {
-        _count: { select: { schedules: true } },
+    const rooms = await optimizationService.executeOptimizedQuery({
+      descriptor: {
+        collection: 'rooms',
+        orderBy: [{ field: 'building', direction: 'asc' }, { field: 'roomName', direction: 'asc' }],
+        label: 'rooms-list',
       },
-      orderBy: [{ building: 'asc' }, { roomName: 'asc' }],
+      cacheKey: 'rooms:all',
+      cacheTtlMs: 10 * 60 * 1000,
+      fetcher: async () => {
+        return db.room.findMany({
+          include: {
+            _count: { select: { schedules: true } },
+          },
+          orderBy: [{ building: 'asc' }, { roomName: 'asc' }],
+        });
+      },
     });
 
     const formattedRooms = rooms.map(room => ({
@@ -64,6 +76,8 @@ export async function POST(request: NextRequest) {
         floor,
       },
     });
+
+    optimizationService.invalidateCache('rooms:all');
 
     await db.auditLog.create({
       data: {

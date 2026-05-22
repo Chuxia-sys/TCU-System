@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-session';
 import { db } from '@/lib/db';
+import { optimizationService } from '@/lib/firestore-optimization-service';
 
 // Time utility functions
 function timeToMinutes(time: string): number {
@@ -41,14 +42,25 @@ export async function GET(request: NextRequest) {
       scheduleWhere.facultyId = session.user.id;
     }
 
-    // Fetch schedules with role-based filtering (no orderBy to avoid composite index)
-    const schedules = await db.schedule.findMany({
-      where: Object.keys(scheduleWhere).length > 0 ? scheduleWhere : undefined,
-      include: { 
-        subject: true, 
-        faculty: true, 
-        section: { include: { department: true } }, 
-        room: true 
+    // Fetch schedules with role-based filtering (cache and index guidance enabled)
+    const schedules = await optimizationService.executeOptimizedQuery({
+      descriptor: {
+        collection: 'schedules',
+        where: Object.keys(scheduleWhere).length > 0 ? scheduleWhere : undefined,
+        label: 'conflicts-schedules',
+      },
+      cacheKey: isFaculty ? `schedules:faculty:${session.user.id}` : 'schedules:all',
+      cacheTtlMs: 5 * 60 * 1000,
+      fetcher: async () => {
+        return db.schedule.findMany({
+          where: Object.keys(scheduleWhere).length > 0 ? scheduleWhere : undefined,
+          include: { 
+            subject: true, 
+            faculty: true, 
+            section: { include: { department: true } }, 
+            room: true 
+          },
+        });
       },
     });
 

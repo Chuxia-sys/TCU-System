@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-session';
 import { db } from '@/lib/db';
+import { optimizationService } from '@/lib/firestore-optimization-service';
 import { notifyScheduleChange } from '@/lib/notification-client';
 
 // GET /api/schedules
@@ -44,21 +45,40 @@ export async function GET(request: NextRequest) {
       departmentSectionIds = deptSections.map(s => s.id);
     }
 
-    const schedules = await db.schedule.findMany({
-      where: {
-        ...(departmentSectionIds && departmentSectionIds.length > 0
-          ? { sectionId: { in: departmentSectionIds } }
-          : filterDepartmentId ? { sectionId: '__none__' } : {}),
-        ...(filterFacultyId && { facultyId: filterFacultyId }),
-        ...(sectionId && { sectionId }),
-        ...(roomId && { roomId }),
-        ...(day && { day }),
+    const schedules = await optimizationService.executeOptimizedQuery({
+      descriptor: {
+        collection: 'schedules',
+        where: {
+          ...(departmentSectionIds && departmentSectionIds.length > 0
+            ? { sectionId: { in: departmentSectionIds } }
+            : filterDepartmentId ? { sectionId: '__none__' } : {}),
+          ...(filterFacultyId && { facultyId: filterFacultyId }),
+          ...(sectionId && { sectionId }),
+          ...(roomId && { roomId }),
+          ...(day && { day }),
+        },
+        label: 'schedules-list',
       },
-      include: {
-        subject: { include: { department: true } },
-        faculty: { include: { department: true } },
-        section: { include: { department: true } },
-        room: true,
+      cacheKey: `schedules:${filterFacultyId ?? 'all'}:${sectionId ?? 'none'}:${roomId ?? 'none'}:${day ?? 'none'}`,
+      cacheTtlMs: 5 * 60 * 1000,
+      fetcher: async () => {
+        return db.schedule.findMany({
+          where: {
+            ...(departmentSectionIds && departmentSectionIds.length > 0
+              ? { sectionId: { in: departmentSectionIds } }
+              : filterDepartmentId ? { sectionId: '__none__' } : {}),
+            ...(filterFacultyId && { facultyId: filterFacultyId }),
+            ...(sectionId && { sectionId }),
+            ...(roomId && { roomId }),
+            ...(day && { day }),
+          },
+          include: {
+            subject: { include: { department: true } },
+            faculty: { include: { department: true } },
+            section: { include: { department: true } },
+            room: true,
+          },
+        });
       },
     });
 
@@ -194,6 +214,9 @@ export async function POST(request: NextRequest) {
         details: JSON.stringify({ subjectId, facultyId, sectionId, roomId, day, startTime, endTime }),
       },
     });
+
+    optimizationService.invalidateCache(/^schedules:/);
+    optimizationService.invalidateCache(/^conflicts:/);
 
     return NextResponse.json({
       ...schedule,
