@@ -1,0 +1,31 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "rooms",
+      "queryScope": "Collection",
+      "fields": [
+        {"fieldPath": "building", "order": "ASCENDING"},
+        {"fieldPath": "roomName", "order": "ASCENDING"},
+        {"fieldPath": "__name__", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "Collection",
+      "fields": [
+        {"fieldPath": "role", "order": "ASCENDING"},
+        {"fieldPath": "name", "order": "ASCENDING"},
+        {"fieldPath": "__name__", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "sections",
+      "queryScope": "Collection",
+      "fields": [
+        {"fieldPath": "yearLevel", "order": "ASCENDING"},
+        {"fieldPath": "sectionName", "order": "ASCENDING"},
+        {"fieldPath": "__name__", "order": "ASCENDING"}
+      ]
+    }
+  ]
+}
