@@ -3,8 +3,8 @@
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store';
+import { UnifiedHeader, HEADER_HEIGHT } from './UnifiedHeader';
 import { Sidebar } from './Sidebar';
-import { Header } from './Header';
 import { Footer } from './Footer';
 import { MobileBottomNav } from './MobileBottomNav';
 import { NotificationProvider } from '@/components/notifications/NotificationProvider';
@@ -20,43 +20,41 @@ export function AppShell({ children }: AppShellProps) {
 
   if (status === 'loading') {
     return (
-      <div className="flex h-screen items-center justify-center bg-background dark:bg-[#0F172A]">
+      <div className="flex h-[100dvh] items-center justify-center bg-background dark:bg-[#0F172A]">
         <Loader2 className="h-8 w-8 animate-spin text-red-500 dark:text-[#EF4444]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background dark:bg-[#0F172A]">
+    <div className="h-screen overflow-hidden flex flex-col bg-background dark:bg-[#0F172A]">
       {/* Notification Provider for real-time toast notifications */}
       <NotificationProvider />
-      
-      {/* Desktop Sidebar */}
-      <Sidebar />
-      
-      {/* Main Content Area */}
-      <div
-        className={cn(
-          'flex-1 flex flex-col transition-all duration-300 ease-in-out',
-          // Desktop: apply margin for sidebar
-          'md:transition-all',
-          sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[260px]',
-          // Mobile: no margin, full width
-          'ml-0'
-        )}
-      >
-        {/* Header */}
-        <Header />
-        
-        {/* Main Content with bottom padding for mobile nav */}
-        <main className="flex-1 p-4 sm:p-5 lg:p-8 pb-24 md:pb-8">
-          {children}
-        </main>
 
-        {/* Footer */}
-        <Footer />
+      {/* ===== TOP HEADER (shrink-0, never scrolls) ===== */}
+      <div className="shrink-0">
+        <UnifiedHeader />
       </div>
-      
+
+      {/* ===== MAIN LAYOUT: Sidebar + Content (flex-1, overflow-hidden) ===== */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* ===== SIDEBAR: Fixed width, flex column, content scrolls ===== */}
+        <Sidebar />
+
+        {/* ===== MAIN CONTENT: Only this section scrolls ===== */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          {/* Content area — this is the ONLY scrollable container */}
+          <div className="flex-1 overflow-y-auto pb-24 md:pb-8">
+            {/* Actual page content */}
+            <div className="p-4 sm:p-5 lg:p-8">
+              {children}
+              {/* Footer inside scrollable area */}
+              <Footer />
+            </div>
+          </div>
+        </main>
+      </div>
+
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />
     </div>

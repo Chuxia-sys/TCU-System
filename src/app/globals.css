@@ -140,8 +140,22 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   
-  /* Hide scrollbars globally while keeping scrolling functional */
+  /* ===== FIXED LAYOUT: Prevent scrolling at root level ===== */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+  }
   
+  #__next {
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Hide scrollbars globally while keeping scrolling functional */
   /* Webkit browsers (Chrome, Safari, Edge) */
   html, body, * {
     scrollbar-width: none; /* Firefox */
@@ -162,11 +176,6 @@
   
   ::-webkit-scrollbar-corner {
     display: none;
-  }
-  
-  /* Ensure overflow elements scroll without showing scrollbar */
-  html, body {
-    overflow: auto;
   }
   
   /* Premium heading typography */

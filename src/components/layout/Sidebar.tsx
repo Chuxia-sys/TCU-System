@@ -157,65 +157,12 @@ export function Sidebar() {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          'hidden md:flex fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-in-out flex-col',
+          'hidden md:flex flex-col shrink-0 transition-all duration-300 ease-in-out',
           sidebarCollapsed ? 'w-[68px]' : 'w-[260px]'
         )}
       >
-        {/* ── Header: Logo + Burger ── */}
-        <div
-          className={cn(
-            'flex items-center shrink-0 h-14 md:h-[72px] transition-colors duration-300',
-            'bg-[#8b0000] dark:header-gradient border-0 border-none outline-none shadow-none',
-            sidebarCollapsed ? '' : 'gap-2 px-4'
-          )}
-        >
-          {/* Expanded logo + text */}
-          {!sidebarCollapsed && (
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="bg-white rounded-lg p-1 shrink-0">
-                <Image src="/tcu-logo.png" alt="TCU Logo" width={32} height={32} className="object-contain" />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <h1 className="text-sm font-bold text-white tracking-wide leading-none">TCU</h1>
-                <p className="text-[9px] text-white/50 font-medium leading-none mt-0.5">Scheduling System</p>
-              </div>
-            </div>
-          )}
-
-          {/* Expanded burger */}
-          {!sidebarCollapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="h-8 w-8 text-white/60 hover:text-white hover:bg-white/10 dark:hover:bg-white/[0.06] shrink-0 rounded-lg transition-all duration-200"
-              aria-label="Collapse sidebar"
-            >
-              <Menu className="h-4 w-4" />
-            </Button>
-          )}
-
-          {/* Collapsed: logo + burger side by side */}
-          {sidebarCollapsed && (
-            <div className="flex items-center gap-1.5 w-full px-2.5">
-              <div className="bg-white rounded-lg p-1 shrink-0">
-                <Image src="/tcu-logo.png" alt="TCU Logo" width={24} height={24} className="object-contain" />
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10 dark:hover:bg-white/[0.06] shrink-0 rounded-lg transition-all duration-200"
-                aria-label="Expand sidebar"
-              >
-                <Menu className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
-        </div>
-
         {/* ── Scrollable Navigation Area ── */}
-        <ScrollArea className="flex-1 bg-card dark:bg-[#111827] premium-scrollbar overflow-x-hidden">
+        <ScrollArea className="flex-1 overflow-y-auto bg-card dark:bg-[#111827] premium-scrollbar">
           <div className="py-4">
             {/* Section heading */}
             {!sidebarCollapsed && filteredNavItems.length > 0 && (
