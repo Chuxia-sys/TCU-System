@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './DataTable';
 import { Button } from '@/components/ui/button';
@@ -42,9 +43,26 @@ import type { User, Department } from '@/types';
 import { safeJson } from '@/lib/utils';
 
 export function UsersView() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: users = [], isLoading: usersLoading, mutate: refetchUsers } = useCachedQuery<User[]>(
+    'users:all',
+    async (signal) => {
+      const res = await fetch('/api/users', { signal });
+      const data = await safeJson<User[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const { data: departments = [], isLoading: deptsLoading, mutate: refetchDepartments } = useCachedQuery<Department[]>(
+    'departments:all',
+    async (signal) => {
+      const res = await fetch('/api/departments', { signal });
+      const data = await safeJson<Department[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const loading = usersLoading || deptsLoading;
+
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -52,30 +70,6 @@ export function UsersView() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      const [usersRes, deptsRes] = await Promise.all([
-        fetch('/api/users'),
-        fetch('/api/departments'),
-      ]);
-      const usersData = await safeJson(usersRes);
-      const deptsData = await safeJson(deptsRes);
-      setUsers(Array.isArray(usersData) ? usersData : []);
-      setDepartments(Array.isArray(deptsData) ? deptsData : []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Failed to load users');
-      setUsers([]);
-      setDepartments([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreate = () => {
     setSelectedUser(null);
@@ -135,13 +129,13 @@ export function UsersView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const data = await safeJson<{ error?: string }>(res);
-      if (res.ok) {
+      const data = await safeJson<{ error?: string; id?: string } & Record<string, unknown>>(res);
+      if (res.ok && data && !('error' in data)) {
         toast.success(selectedUser ? 'User updated' : 'User created');
         setDialogOpen(false);
-        fetchData();
+        refetchUsers();
       } else {
-        toast.error(data?.error || 'Operation failed');
+        toast.error((data as any)?.error || 'Operation failed');
       }
     } catch (error) {
       console.error('Submit error:', error);
@@ -161,7 +155,7 @@ export function UsersView() {
         toast.success(data.message || 'User deleted successfully');
         setDeleteDialogOpen(false);
         setSelectedUser(null);
-        fetchData();
+        refetchUsers();
       } else {
         toast.error(data?.error || 'Failed to delete user');
       }

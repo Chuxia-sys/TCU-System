@@ -64,27 +64,28 @@ export function Header() {
   const sessionId = session?.user?.id;
   useEffect(() => {
     if (!sessionId) return;
-    const controller = new AbortController();
 
-    const doFetch = async (signal: AbortSignal) => {
+    let mounted = true;
+    let interval: ReturnType<typeof setInterval>;
+
+    const doFetch = async () => {
+      const controller = new AbortController();
       try {
-        const res = await fetch(`/api/notifications?userId=${sessionId}`, { signal });
+        const res = await fetch(`/api/notifications?userId=${sessionId}&take=20`, { signal: controller.signal });
         const data = await safeJson<Notification[]>(res);
-        if (!signal.aborted) {
-          setNotifications(Array.isArray(data) ? data : []);
-        }
+        if (!mounted) return;
+        setNotifications(Array.isArray(data) ? data : []);
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
-        if (!signal.aborted) {
-          setNotifications([]);
-        }
+        if (!mounted) return;
+        setNotifications([]);
       }
     };
 
-    doFetch(controller.signal);
-    const interval = setInterval(() => doFetch(controller.signal), 60000);
+    doFetch();
+    interval = setInterval(doFetch, 120000); // 2 min (NotificationProvider handles toasts at 30s)
     return () => {
-      controller.abort();
+      mounted = false;
       clearInterval(interval);
     };
   }, [sessionId]);

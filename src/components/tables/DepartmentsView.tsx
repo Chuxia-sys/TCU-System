@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './DataTable';
 import { Button } from '@/components/ui/button';
@@ -30,31 +31,21 @@ import type { Department } from '@/types';
 import { safeJson } from '@/lib/utils';
 
 export function DepartmentsView() {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: departments = [], isLoading: loading, mutate: refetchDepartments } = useCachedQuery<Department[]>(
+    'departments:all',
+    async (signal) => {
+      const res = await fetch('/api/departments', { signal });
+      const data = await safeJson<Department[]>(res);
+      return data || [];
+    }
+  );
+
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetchDepartments();
-  }, []);
-
-  const fetchDepartments = async () => {
-    try {
-      const res = await fetch('/api/departments');
-      const data = await safeJson(res);
-      setDepartments(data || []);
-    } catch (error) {
-      console.error('Error fetching departments:', error);
-      toast.error('Failed to load departments');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreate = () => {
     setSelectedDept(null);
@@ -112,11 +103,11 @@ export function DepartmentsView() {
         body: JSON.stringify(formData),
       });
 
-      const data = await safeJson<{ error?: string }>(res);
-      if (data) {
+      const data = await safeJson<{ error?: string; id?: string } & Record<string, unknown>>(res);
+      if (data && !('error' in data)) {
         toast.success(selectedDept ? 'Department updated' : 'Department created');
         setDialogOpen(false);
-        fetchDepartments();
+        refetchDepartments();
       } else {
         toast.error('Operation failed');
       }
@@ -133,12 +124,13 @@ export function DepartmentsView() {
     try {
       const res = await fetch(`/api/departments/${selectedDept.id}`, { method: 'DELETE' });
       const data = await safeJson<{ error?: string }>(res);
-      if (data) {
+      if (data && !data.error) {
         toast.success('Department deleted');
         setDeleteDialogOpen(false);
-        fetchDepartments();
+        setSelectedDept(null);
+        refetchDepartments();
       } else {
-        toast.error('Delete failed');
+        toast.error(data?.error || 'Delete failed');
       }
     } catch {
       toast.error('Delete failed');

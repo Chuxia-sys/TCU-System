@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,41 +74,31 @@ type ScheduleResponse = {
 };
 
 export function MyScheduleResponsesView() {
-  const [pendingSchedules, setPendingSchedules] = useState<Schedule[]>([]);
-  const [myResponses, setMyResponses] = useState<ScheduleResponse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'responded'>('pending');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [pendingRes, responsesRes] = await Promise.all([
-        fetch('/api/schedule-responses/pending'),
-        fetch('/api/schedule-responses'),
-      ]);
-
-      const pendingData = await safeJson(pendingRes);
-      const responsesData = await safeJson(responsesRes);
-
-      setPendingSchedules(Array.isArray(pendingData) ? pendingData : []);
-      setMyResponses(Array.isArray(responsesData) ? responsesData : []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to fetch schedule data');
-      setPendingSchedules([]);
-      setMyResponses([]);
-    } finally {
-      setLoading(false);
+  const { data: pendingSchedules = [], isLoading: pendingLoading, mutate: refetchPending } = useCachedQuery<Schedule[]>(
+    'schedule-responses:pending',
+    async (signal) => {
+      const res = await fetch('/api/schedule-responses/pending', { signal });
+      const data = await safeJson<Schedule[]>(res);
+      return Array.isArray(data) ? data : [];
     }
-  };
+  );
+
+  const { data: myResponses = [], isLoading: responsesLoading, mutate: refetchResponses } = useCachedQuery<ScheduleResponse[]>(
+    'schedule-responses:mine',
+    async (signal) => {
+      const res = await fetch('/api/schedule-responses', { signal });
+      const data = await safeJson<ScheduleResponse[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const loading = pendingLoading || responsesLoading;
 
   const handleAccept = async (scheduleId: string) => {
     try {
@@ -124,7 +115,8 @@ export function MyScheduleResponsesView() {
       const data = await safeJson<{ error?: string }>(res);
       if (data) {
         toast.success('Schedule accepted successfully!');
-        fetchData();
+        refetchPending();
+        refetchResponses();
       } else {
         toast.error('Failed to accept schedule');
       }
@@ -162,7 +154,8 @@ export function MyScheduleResponsesView() {
         setShowRejectDialog(false);
         setSelectedSchedule(null);
         setRejectionReason('');
-        fetchData();
+        refetchPending();
+        refetchResponses();
       } else {
         toast.error('Failed to reject schedule');
       }

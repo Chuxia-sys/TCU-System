@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,9 +35,28 @@ import { formatTime12Hour, formatTimeRange, safeJson } from '@/lib/utils';
 
 export function PreferencesView() {
   const { data: session } = useSession();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+
+  const { data: subjects = [], isLoading: subjectsLoading } = useCachedQuery<Subject[]>(
+    'subjects:all',
+    async (signal) => {
+      const res = await fetch('/api/subjects', { signal });
+      const data = await safeJson<Subject[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const { data: userData, isLoading: userLoading } = useCachedQuery<{ preferences?: FacultyPreference } | null>(
+    session?.user?.id ? `user:${session.user.id}` : null,
+    async (signal) => {
+      const res = await fetch(`/api/users/${session?.user?.id}`, { signal });
+      return safeJson<{ preferences?: FacultyPreference }>(res);
+    },
+    { enabled: !!session?.user?.id }
+  );
+
+  const loading = subjectsLoading || userLoading;
+
   const [preferences, setPreferences] = useState<FacultyPreference | null>(null);
   const [formData, setFormData] = useState({
     preferredDays: [] as string[],
@@ -47,42 +67,20 @@ export function PreferencesView() {
     notes: '',
   });
 
+  // Set form data from fetched preferences
   useEffect(() => {
-    if (session?.user?.id) {
-      fetchData();
+    if (userData?.preferences) {
+      setPreferences(userData.preferences);
+      setFormData({
+        preferredDays: userData.preferences.preferredDays || [],
+        preferredTimeStart: userData.preferences.preferredTimeStart || '08:00',
+        preferredTimeEnd: userData.preferences.preferredTimeEnd || '17:00',
+        preferredSubjects: userData.preferences.preferredSubjects || [],
+        unavailableDays: userData.preferences.unavailableDays || [],
+        notes: userData.preferences.notes || '',
+      });
     }
-  }, [session?.user?.id]);
-
-  const fetchData = async () => {
-    try {
-      const [subjectsRes, userRes] = await Promise.all([
-        fetch('/api/subjects'),
-        fetch(`/api/users/${session?.user?.id}`),
-      ]);
-
-      const subjectsData = await safeJson(subjectsRes);
-      const userData = await safeJson<{ preferences?: FacultyPreference }>(userRes);
-
-      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
-
-      if (userData?.preferences) {
-        setPreferences(userData.preferences);
-        setFormData({
-          preferredDays: userData.preferences.preferredDays || [],
-          preferredTimeStart: userData.preferences.preferredTimeStart || '08:00',
-          preferredTimeEnd: userData.preferences.preferredTimeEnd || '17:00',
-          preferredSubjects: userData.preferences.preferredSubjects || [],
-          unavailableDays: userData.preferences.unavailableDays || [],
-          notes: userData.preferences.notes || '',
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load preferences');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [userData]);
 
   const handleSave = async () => {
     setSaving(true);

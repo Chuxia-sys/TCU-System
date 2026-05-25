@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,8 +34,6 @@ import { safeJson } from '@/lib/utils';
 
 export function ProfileView() {
   const { data: session, update } = useSession();
-  const [loading, setLoading] = useState(false);
-  const [departments, setDepartments] = useState<Department[]>([]);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -55,6 +54,27 @@ export function ProfileView() {
 
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
 
+  const { data: userProfile, isLoading: profileLoading, mutate: refetchProfile } = useCachedQuery<{ name?: string; email?: string; phone?: string; image?: string } | null>(
+    session?.user?.id ? `user:${session.user.id}` : null,
+    async (signal) => {
+      const res = await fetch(`/api/users/${session?.user?.id}`, { signal });
+      return safeJson<{ name?: string; email?: string; phone?: string; image?: string }>(res);
+    },
+    { enabled: !!session?.user?.id }
+  );
+
+  const { data: departments = [], isLoading: deptsLoading } = useCachedQuery<Department[]>(
+    'departments:all',
+    async (signal) => {
+      const res = await fetch('/api/departments', { signal });
+      const data = await safeJson<Department[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const loading = profileLoading || deptsLoading;
+
+  // Set profile from session data initially
   useEffect(() => {
     if (session?.user) {
       setProfile({
@@ -62,44 +82,25 @@ export function ProfileView() {
         email: session.user.email || '',
         phone: '',
       });
-      // Set image preview from session
       if (session.user.image) {
         setImagePreview(session.user.image);
       }
     }
-    fetchUserData();
-    fetchDepartments();
   }, [session]);
 
-  const fetchUserData = async () => {
-    if (!session?.user?.id) return;
-    try {
-      const res = await fetch(`/api/users/${session.user.id}`);
-      const data = await safeJson<{ name?: string; email?: string; phone?: string; image?: string }>(res);
-      if (data) {
-        setProfile({
-          name: data.name || '',
-          email: data.email || '',
-          phone: data.phone || '',
-        });
-        if (data.image) {
-          setImagePreview(data.image);
-        }
+  // Override with API data when available
+  useEffect(() => {
+    if (userProfile) {
+      setProfile({
+        name: userProfile.name || '',
+        email: userProfile.email || '',
+        phone: userProfile.phone || '',
+      });
+      if (userProfile.image) {
+        setImagePreview(userProfile.image);
       }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
     }
-  };
-
-  const fetchDepartments = async () => {
-    try {
-      const res = await fetch('/api/departments');
-      const data = await safeJson(res);
-      setDepartments(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching departments:', error);
-    }
-  };
+  }, [userProfile]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

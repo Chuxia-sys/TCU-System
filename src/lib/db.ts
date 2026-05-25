@@ -5,7 +5,8 @@
 //
 // - Database: Firebase Firestore (project: for-commission)
 // - Access method: REST API (no gRPC dependency)
-// - Authentication: API key (direct Firestore access)
+// - Authentication: OAuth2 token (preferred) or API key (fallback)
+//   Uses service account via src/lib/firebase-admin.ts for OAuth2.
 // - Provides: Prisma-compatible API (findUnique, findMany, etc.)
 //
 // ⚠️  CRITICAL: Prisma Client is NEVER used at runtime.
@@ -66,9 +67,107 @@ const REQUEST_CONFIG = {
   BACKOFF_INITIAL_MS: 500,
   BACKOFF_MAX_MS: 5000,
   MAX_CONCURRENT_RELATIONS: 5, // Limit concurrent relation fetches
+  // 429 (quota) specific settings
+  QUOTA_MAX_RETRIES: 5,        // More retries for quota errors
+  QUOTA_BACKOFF_INITIAL_MS: 2000,  // Start with 2s backoff
+  QUOTA_BACKOFF_MAX_MS: 30000,     // Cap at 30s
+  CIRCUIT_BREAKER_THRESHOLD: 10,   // Number of recent 429s to trigger breaker
+  CIRCUIT_BREAKER_RESET_MS: 60000, // Reset breaker after 60s
 };
 
-// Helper: append API key to a URL as a query parameter
+// ── Global rate limiter / circuit breaker ──
+const rateLimiter = {
+  recent429s: 0,
+  last429Time: 0,
+  circuitOpen: false,
+  circuitOpenTime: 0,
+  /**
+   * Call on every 429. Returns true if the circuit breaker should engage.
+   */
+  record429(): boolean {
+    this.recent429s++;
+    this.last429Time = Date.now();
+    if (this.recent429s >= REQUEST_CONFIG.CIRCUIT_BREAKER_THRESHOLD && !this.circuitOpen) {
+      this.circuitOpen = true;
+      this.circuitOpenTime = Date.now();
+      console.error(`[RateLimiter] ⛔ Circuit BREAKER opened after ${this.recent429s} quota errors`);
+      return true;
+    }
+    return false;
+  },
+  /**
+   * Call before every request. If the circuit is open, returns the remaining
+   * wait time in ms (0 = no wait). If the reset period has elapsed, re-closes.
+   */
+  waitTime(): number {
+    if (!this.circuitOpen) return 0;
+    const elapsed = Date.now() - this.circuitOpenTime;
+    if (elapsed >= REQUEST_CONFIG.CIRCUIT_BREAKER_RESET_MS) {
+      this.circuitOpen = false;
+      this.recent429s = 0;
+      console.log(`[RateLimiter] ✅ Circuit BREAKER closed after ${elapsed}ms`);
+      return 0;
+    }
+    return REQUEST_CONFIG.CIRCUIT_BREAKER_RESET_MS - elapsed;
+  },
+  /** Call on a successful request to gradually decay the 429 counter. */
+  recordSuccess(): void {
+    if (this.recent429s > 0) {
+      this.recent429s = Math.max(0, this.recent429s - 1);
+    }
+  },
+};
+
+// ── Request deduplication ──
+// When multiple callers ask for the same Firestore document/query simultaneously,
+// coalesce them into a single in-flight request. Only applies to GET requests.
+const inflightMap = new Map<string, Promise<any>>();
+const INFLIGHT_TTL_MS = 10_000; // Dedup window
+
+function dedupedFirestoreRequest(path: string, method: string = 'GET', body?: any): Promise<any> {
+  // Only deduplicate read requests
+  if (method !== 'GET') {
+    return firestoreRequest(path, method, body);
+  }
+  const key = `${method}:${path}:${body ? JSON.stringify(body) : ''}`;
+  const existing = inflightMap.get(key);
+  if (existing) {
+    return existing;
+  }
+  const promise = firestoreRequest(path, method, body).finally(() => {
+    // Remove from map after a short delay to prevent rapid re-requests
+    setTimeout(() => inflightMap.delete(key), INFLIGHT_TTL_MS);
+  });
+  inflightMap.set(key, promise);
+  return promise;
+}
+
+// ── OAuth2 access token cache ──
+let cachedToken: string | null = null;
+let tokenExpiry = 0;
+
+/**
+ * Try to get an OAuth2 access token from the service account.
+ * Falls back to null — caller should use API key as fallback.
+ */
+async function getOAuthToken(): Promise<string | null> {
+  if (cachedToken && Date.now() < tokenExpiry) {
+    return cachedToken;
+  }
+  try {
+    const { getAccessToken } = await import('./firebase-admin');
+    const token = await getAccessToken();
+    if (token) {
+      cachedToken = token;
+      tokenExpiry = Date.now() + 55 * 60 * 1000; // Refresh after 55 min (tokens last 60 min)
+    }
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+// Helper: append API key to a URL as a query parameter (fallback auth)
 function withApiKey(url: string): string {
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}key=${FIREBASE_API_KEY}`;
@@ -181,11 +280,24 @@ export function getFirestoreStatus(): {
   };
 }
 
-// Make request to Firestore REST API using API key authentication with retry and timeout
-async function firestoreRequest(path: string, method: string = 'GET', body?: any, retryCount: number = 0): Promise<any> {
+// Make request to Firestore REST API using OAuth2 (preferred) or API key (fallback)
+async function firestoreRequest(path: string, method: string = 'GET', body?: any, retryCount: number = 0, isQuotaRetry: boolean = false): Promise<any> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
+
+  // Try OAuth2 Bearer token first (more secure), fall back to API key
+  const token = await getOAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // ── Circuit breaker check ──
+  const waitMs = rateLimiter.waitTime();
+  if (waitMs > 0) {
+    console.warn(`[RateLimiter] ⏳ Circuit breaker active, waiting ${waitMs}ms before request: ${path}`);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
 
   const baseUrl = path.startsWith('http') ? path : `${FIRESTORE_BASE}/${path}`;
   const url = withApiKey(baseUrl);
@@ -203,7 +315,27 @@ async function firestoreRequest(path: string, method: string = 'GET', body?: any
     });
 
     if (response.status === 404) {
+      rateLimiter.recordSuccess();
       return null;
+    }
+
+    // ── Handle 429 Quota Exceeded ──
+    if (response.status === 429) {
+      rateLimiter.record429();
+      const data = await response.json().catch(() => ({}));
+      const maxRetries = REQUEST_CONFIG.QUOTA_MAX_RETRIES;
+      if (retryCount < maxRetries) {
+        const backoffMs = Math.min(
+          REQUEST_CONFIG.QUOTA_BACKOFF_INITIAL_MS * Math.pow(2, retryCount),
+          REQUEST_CONFIG.QUOTA_BACKOFF_MAX_MS
+        );
+        console.warn(
+          `[DB] ⚠️ Quota exceeded (429) — retry ${retryCount + 1}/${maxRetries} after ${backoffMs}ms: ${path}`
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        return firestoreRequest(path, method, body, retryCount + 1, true);
+      }
+      throw new Error(`Firestore REST error 429: ${data.error?.message || JSON.stringify(data)}`);
     }
 
     const data = await response.json();
@@ -211,28 +343,41 @@ async function firestoreRequest(path: string, method: string = 'GET', body?: any
       throw new Error(`Firestore REST error ${response.status}: ${data.error?.message || JSON.stringify(data)}`);
     }
 
+    rateLimiter.recordSuccess();
     return data;
   } catch (error: any) {
     clearTimeout(timeoutId);
 
-    // Determine if error is retryable
+    // Determine if error is retryable (network-level or quota)
+    const isQuotaError = isQuotaRetry || (
+      typeof error.message === 'string' && error.message.includes('429')
+    );
     const isRetryable =
       error.name === 'AbortError' || // Timeout
       error.code === 'ECONNREFUSED' ||
       error.code === 'ECONNRESET' ||
       error.code === 'ETIMEDOUT' ||
-      (error.cause?.code === 'UND_ERR_CONNECT_TIMEOUT');
+      (error.cause?.code === 'UND_ERR_CONNECT_TIMEOUT') ||
+      isQuotaError;
 
-    if (isRetryable && retryCount < REQUEST_CONFIG.MAX_RETRIES) {
-      const backoffMs = Math.min(
-        REQUEST_CONFIG.BACKOFF_INITIAL_MS * Math.pow(2, retryCount),
-        REQUEST_CONFIG.BACKOFF_MAX_MS
-      );
-      console.log(
-        `[DB] Retrying request (attempt ${retryCount + 1}/${REQUEST_CONFIG.MAX_RETRIES}) after ${backoffMs}ms: ${path}`
-      );
-      await new Promise((resolve) => setTimeout(resolve, backoffMs));
-      return firestoreRequest(path, method, body, retryCount + 1);
+    if (isRetryable) {
+      const maxRetries = isQuotaError ? REQUEST_CONFIG.QUOTA_MAX_RETRIES : REQUEST_CONFIG.MAX_RETRIES;
+      if (retryCount < maxRetries) {
+        const backoffMs = isQuotaError
+          ? Math.min(
+              REQUEST_CONFIG.QUOTA_BACKOFF_INITIAL_MS * Math.pow(2, retryCount),
+              REQUEST_CONFIG.QUOTA_BACKOFF_MAX_MS
+            )
+          : Math.min(
+              REQUEST_CONFIG.BACKOFF_INITIAL_MS * Math.pow(2, retryCount),
+              REQUEST_CONFIG.BACKOFF_MAX_MS
+            );
+        console.log(
+          `[DB] Retrying request (attempt ${retryCount + 1}/${maxRetries}) after ${backoffMs}ms: ${path}`
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        return firestoreRequest(path, method, body, retryCount + 1, isQuotaError);
+      }
     }
 
     // Log detailed error info
@@ -403,7 +548,7 @@ function createModel(name: string, uniqueFields: string[], relations: ModelRelat
             if (relation.type === 'one' && relation.localKey) {
               const foreignId = data[relation.localKey];
               if (foreignId) {
-                const doc = await firestoreRequest(`${relation.collection}/${foreignId}`);
+                const doc = await dedupedFirestoreRequest(`${relation.collection}/${foreignId}`);
                 if (doc) {
                   const relatedData = parseDocument(doc);
                   if (relatedData) {
@@ -580,7 +725,7 @@ function createModel(name: string, uniqueFields: string[], relations: ModelRelat
       // Try by id first (direct document read)
       if (w.id) {
         try {
-          const doc = await firestoreRequest(`${name}/${w.id}`);
+          const doc = await dedupedFirestoreRequest(`${name}/${w.id}`);
           if (!doc) return null;
           const data = parseDocument(doc);
           if (!data) return null;
@@ -818,7 +963,7 @@ function createModel(name: string, uniqueFields: string[], relations: ModelRelat
       await firestoreRequest(`${name}/${docId}?${maskParams}`, 'PATCH', { fields });
 
       // Return the updated document
-      const doc = await firestoreRequest(`${name}/${docId}`);
+      const doc = await dedupedFirestoreRequest(`${name}/${docId}`);
       return parseDocument(doc) || { id: docId, ...updateData };
     },
 
@@ -852,7 +997,7 @@ function createModel(name: string, uniqueFields: string[], relations: ModelRelat
       }
 
       // Get the document data before deleting
-      const doc = await firestoreRequest(`${name}/${docId}`);
+      const doc = await dedupedFirestoreRequest(`${name}/${docId}`);
       const data = parseDocument(doc) || { id: docId };
 
       await firestoreRequest(`${name}/${docId}`, 'DELETE');
@@ -888,7 +1033,7 @@ function createModel(name: string, uniqueFields: string[], relations: ModelRelat
 
       if (w.id) {
         try {
-          const doc = await firestoreRequest(`${name}/${w.id}`);
+          const doc = await dedupedFirestoreRequest(`${name}/${w.id}`);
           if (doc) {
             existing = parseDocument(doc);
           }
@@ -928,7 +1073,7 @@ function createModel(name: string, uniqueFields: string[], relations: ModelRelat
         await firestoreRequest(`${name}/${existing.id}?${maskParams}`, 'PATCH', { fields });
 
         // Return updated document
-        const doc = await firestoreRequest(`${name}/${existing.id}`);
+        const doc = await dedupedFirestoreRequest(`${name}/${existing.id}`);
         return parseDocument(doc) || { id: existing.id, ...existing, ...updatePayload };
       } else {
         // Create new

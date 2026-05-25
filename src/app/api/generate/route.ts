@@ -10,6 +10,8 @@ import {
   type ScheduleAssignment,
   type CurriculumEntry,
 } from '@/lib/scheduling-algorithm';
+import { optimizationService } from '@/lib/firestore-optimization-service';
+import { incrementGenerationVersion } from '@/app/api/stats/route';
 import { v4 as uuidv4 } from 'uuid';
 import { sendNotificationToUser } from '@/lib/notification-client';
 
@@ -37,13 +39,14 @@ export async function POST(request: NextRequest) {
   // PARSE REQUEST BODY (must complete before response)
   // =========================================================================
   const body = await request.json();
-  const { departmentId, clearExisting = true, curriculum, detectedConflicts } = body;
+  const { departmentId, clearExisting = true, curriculum, detectedConflicts, semester = '1st Semester' } = body;
 
   const generationId = uuidv4();
   const adminUserId = session.user.id;
 
   console.log('=== TCU SCHEDULE GENERATION v2.0 (ASYNC) ===');
   console.log(`Generation ID: ${generationId}`);
+  console.log(`Semester: ${semester}`);
   console.log(`Department: ${departmentId || 'All'}`);
   console.log(`Time: ${new Date().toISOString()}`);
   console.log(`Detected conflicts passed: ${detectedConflicts?.length || 0}`);
@@ -61,21 +64,48 @@ export async function POST(request: NextRequest) {
       // FETCH DATA
       // =========================================================================
       
-      // Fetch sections
-      const sectionsRaw = await db.section.findMany({
+      // Fetch sections (filtered by isActive, with fallback)
+      let sectionsRaw = await db.section.findMany({
         where: departmentId ? { departmentId } : { isActive: true },
         include: { department: true },
       });
+      if (sectionsRaw.length === 0) {
+        console.log(`No sections found with isActive filter, trying without...`);
+        sectionsRaw = await db.section.findMany({
+          where: departmentId ? { departmentId } : {},
+          include: { department: true },
+        });
+        if (sectionsRaw.length > 0) {
+          console.log(`Found ${sectionsRaw.length} sections without isActive filter`);
+        }
+      }
       
-      // Fetch subjects
-      const subjectsRaw = await db.subject.findMany({
-        where: departmentId ? { departmentId } : { isActive: true },
+      // Fetch subjects (filtered by semester, with fallback)
+      let subjectsRaw = await db.subject.findMany({
+        where: departmentId ? { departmentId, semester } : { semester },
       });
+      // Fallback: if no subjects found with semester filter, try without it
+      if (subjectsRaw.length === 0) {
+        console.log(`No subjects found for semester "${semester}", trying without semester filter...`);
+        subjectsRaw = await db.subject.findMany({
+          where: departmentId ? { departmentId } : {},
+        });
+        if (subjectsRaw.length > 0) {
+          console.log(`Found ${subjectsRaw.length} subjects without semester filter`);
+        }
+      }
       
-      // Fetch rooms
-      const roomsRaw = await db.room.findMany({
+      // Fetch rooms (filtered by isActive, with fallback)
+      let roomsRaw = await db.room.findMany({
         where: { isActive: true },
       });
+      if (roomsRaw.length === 0) {
+        console.log(`No rooms found with isActive filter, trying without...`);
+        roomsRaw = await db.room.findMany({ where: {} });
+        if (roomsRaw.length > 0) {
+          console.log(`Found ${roomsRaw.length} rooms without isActive filter`);
+        }
+      }
       
       // Fetch ALL faculty (regardless of department) with preferences
       const facultyRaw = await db.user.findMany({
@@ -372,7 +402,7 @@ export async function POST(request: NextRequest) {
                 startTime: s.startTime,
                 endTime: s.endTime,
                 status: 'approved',
-                semester: '1st Semester',
+                semester,
                 academicYear: '2024-2025',
               })),
             });
@@ -391,7 +421,7 @@ export async function POST(request: NextRequest) {
                     startTime: s.startTime,
                     endTime: s.endTime,
                     status: 'approved',
-                    semester: '1st Semester',
+                    semester,
                     academicYear: '2024-2025',
                   },
                 });
@@ -545,7 +575,7 @@ export async function POST(request: NextRequest) {
             }, 0);
             
             const notificationTitle = 'New Schedules Generated';
-            const notificationMessage = `You have been assigned ${facultySchedules.length} class(es) totaling ${totalUnits} units for 1st Semester 2024-2025. Please review your schedule in the calendar view.`;
+            const notificationMessage = `You have been assigned ${facultySchedules.length} class(es) totaling ${totalUnits} units for ${semester} 2024-2025. Please review your schedule in the calendar view.`;
             
             try {
               await db.notification.create({
@@ -633,6 +663,22 @@ export async function POST(request: NextRequest) {
         });
       } catch (auditErr) {
         console.error('Failed to create audit log:', auditErr);
+      }
+
+      // =========================================================================
+      // INVALIDATE SERVER CACHES so dashboards see fresh data
+      // =========================================================================
+
+      console.log('\n=== INVALIDATING SERVER CACHES ===');
+      try {
+        optimizationService.invalidateCache(/^schedules:/);
+        optimizationService.invalidateCache(/^conflicts:/);
+        optimizationService.invalidateCache(/^stats:/);
+        invalidateStatsCache();
+        incrementGenerationVersion();
+        console.log('Server caches invalidated successfully');
+      } catch (cacheErr) {
+        console.error('Failed to invalidate server caches:', cacheErr);
       }
 
       // =========================================================================

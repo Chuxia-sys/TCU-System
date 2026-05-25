@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './DataTable';
 import { Button } from '@/components/ui/button';
@@ -43,68 +44,70 @@ import { DAYS, TIME_OPTIONS } from '@/types';
 import { formatTimeRange, safeJson } from '@/lib/utils';
 
 export function SchedulesView() {
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [faculty, setFaculty] = useState<User[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      const [schedulesRes, usersRes, sectionsRes, roomsRes, subjectsRes] = await Promise.all([
-        fetch('/api/schedules'),
-        fetch('/api/users?role=faculty'),
-        fetch('/api/sections'),
-        fetch('/api/rooms'),
-        fetch('/api/subjects'),
-      ]);
-
-      const schedulesData = await safeJson(schedulesRes);
-      const usersData = await safeJson(usersRes);
-      const sectionsData = await safeJson(sectionsRes);
-      const roomsData = await safeJson(roomsRes);
-      const subjectsData = await safeJson(subjectsRes);
-
-      // Check for API errors
-      if (usersData && !Array.isArray(usersData) && 'error' in usersData) {
-        console.error('Faculty API error:', (usersData as { error: string }).error);
-        toast.error(`Failed to load faculty: ${(usersData as { error: string }).error}`);
-      }
-      
-      // Ensure we always set arrays (APIs might return error objects)
-      setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
-      setFaculty(Array.isArray(usersData) ? usersData : []);
-      setSections(Array.isArray(sectionsData) ? sectionsData : []);
-      setRooms(Array.isArray(roomsData) ? roomsData : []);
-      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
-      
-      // Show warning if no faculty available
-      if (!Array.isArray(usersData) || usersData.length === 0) {
-        console.warn('No faculty members found. Please add faculty users first.');
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load data');
-      // Set empty arrays on error
-      setSchedules([]);
-      setFaculty([]);
-      setSections([]);
-      setRooms([]);
-      setSubjects([]);
-    } finally {
-      setLoading(false);
+  const { data: schedules = [], isLoading: schedulesLoading, mutate: refetchSchedules } = useCachedQuery<Schedule[]>(
+    'schedules:all',
+    async (signal) => {
+      const res = await fetch('/api/schedules', { signal });
+      const data = await safeJson<Schedule[]>(res);
+      return Array.isArray(data) ? data : [];
     }
-  };
+  );
+
+  const { data: faculty = [], isLoading: facultyLoading } = useCachedQuery<User[]>(
+    'faculty:all',
+    async (signal) => {
+      const res = await fetch('/api/users?role=faculty', { signal });
+      const data = await safeJson<User[]>(res);
+      if (!Array.isArray(data) && 'error' in (data || {})) {
+        console.error('Faculty API error:', (data as { error: string }).error);
+        toast.error(`Failed to load faculty: ${(data as { error: string }).error}`);
+        return [];
+      }
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const { data: sections = [], isLoading: sectionsLoading } = useCachedQuery<Section[]>(
+    'sections:all',
+    async (signal) => {
+      const res = await fetch('/api/sections', { signal });
+      const data = await safeJson<Section[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const { data: rooms = [], isLoading: roomsLoading } = useCachedQuery<Room[]>(
+    'rooms:all',
+    async (signal) => {
+      const res = await fetch('/api/rooms', { signal });
+      const data = await safeJson<Room[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const { data: subjects = [], isLoading: subjectsLoading } = useCachedQuery<Subject[]>(
+    'subjects:all',
+    async (signal) => {
+      const res = await fetch('/api/subjects', { signal });
+      const data = await safeJson<Subject[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const loading = schedulesLoading || facultyLoading || sectionsLoading || roomsLoading || subjectsLoading;
+
+  // Show warning if no faculty available
+  useEffect(() => {
+    if (!loading && faculty.length === 0) {
+      console.warn('No faculty members found. Please add faculty users first.');
+    }
+  }, [loading, faculty.length]);
 
   const handleCreate = () => {
     setSelectedSchedule(null);
@@ -116,6 +119,7 @@ export function SchedulesView() {
       day: 'Monday',
       startTime: '08:00',
       endTime: '10:00',
+      semester: '1st Semester',
     });
     setFormErrors({});
     setDialogOpen(true);
@@ -131,6 +135,7 @@ export function SchedulesView() {
       day: schedule.day,
       startTime: schedule.startTime,
       endTime: schedule.endTime,
+      semester: schedule.semester || '1st Semester',
     });
     setFormErrors({});
     setDialogOpen(true);
@@ -181,7 +186,7 @@ export function SchedulesView() {
           toast.success(selectedSchedule ? 'Schedule updated' : 'Schedule created');
         }
         setDialogOpen(false);
-        fetchData();
+        refetchSchedules();
       } else {
         toast.error('Operation failed');
       }
@@ -198,17 +203,18 @@ export function SchedulesView() {
         method: 'DELETE'
       });
       const data = await safeJson<{ error?: string }>(res);
-      if (data) {
+      if (data && !data.error) {
         toast.success('Schedule deleted');
         setDeleteDialogOpen(false);
-        fetchData();
+        setSelectedSchedule(null);
+        refetchSchedules();
       } else {
-        toast.error('Delete failed');
+        toast.error(data?.error || 'Delete failed');
       }
     } catch {
       toast.error('Delete failed');
     }
-  };
+  };  
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; class: string }> = {
@@ -281,6 +287,15 @@ export function SchedulesView() {
           </div>
         );
       },
+    },
+    {
+      accessorKey: 'semester',
+      header: 'Semester',
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="text-xs">
+          {row.original.semester || '1st Semester'}
+        </Badge>
+      ),
     },
     {
       accessorKey: 'day',
@@ -425,6 +440,11 @@ export function SchedulesView() {
                     <span className="truncate">{schedule.room?.roomName}</span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {schedule.semester || '1st Semester'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span className="truncate">{schedule.day}</span>
                   </div>
@@ -566,6 +586,22 @@ export function SchedulesView() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Semester</Label>
+                <Select
+                  value={formData.semester as string || '1st Semester'}
+                  onValueChange={(value) => setFormData({ ...formData, semester: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select semester" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1st Semester">1st Semester</SelectItem>
+                    <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                    <SelectItem value="Summer">Summer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label>Day</Label>
                 <Select

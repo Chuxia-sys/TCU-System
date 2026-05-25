@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,10 +60,8 @@ const ACADEMIC_YEARS = ['2023-2024', '2024-2025', '2025-2026', '2026-2027'];
 export function SettingsView() {
   const { data: session } = useSession();
   const { setViewMode } = useAppStore();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [seeding, setSeeding] = useState(false);
-  const [seededStatus, setSeededStatus] = useState<boolean | null>(null);
   const [settings, setSettings] = useState<SystemSettings>({
     institution_name: 'Taguig City University',
     institution_code: 'TCU',
@@ -77,53 +76,39 @@ export function SettingsView() {
     maintenance_mode: false,
   });
 
+  const { data: settingsData, isLoading: settingsLoading, mutate: refetchSettings } = useCachedQuery<Partial<SystemSettings>>(
+    'settings:system',
+    async (signal) => {
+      const res = await fetch('/api/settings', { signal });
+      return safeJson<Partial<SystemSettings>>(res);
+    }
+  );
+
+  const { data: seedData, isLoading: seedLoading, mutate: refetchSeedStatus } = useCachedQuery<{ seeded?: boolean }>(
+    'seed:status',
+    async (signal) => {
+      const res = await fetch('/api/seed', { signal });
+      return safeJson<{ seeded?: boolean }>(res);
+    }
+  );
+
+  const seededStatus = seedData?.seeded ?? null;
+  const loading = settingsLoading || seedLoading;
+
+  // Populate form from cached settings
   useEffect(() => {
-    fetchSettings();
-    checkSeedStatus();
-  }, []);
-
-  // Role-based access control - redirect non-admin users
-  useEffect(() => {
-    if (session && session.user?.role !== 'admin') {
-      toast.error('Access denied. Admin privileges required.');
-      setViewMode('dashboard');
+    if (settingsData) {
+      setSettings(prev => ({
+        ...prev,
+        ...settingsData,
+        auto_generate_enabled: settingsData.auto_generate_enabled === 'true',
+        conflict_detection_enabled: settingsData.conflict_detection_enabled === 'true',
+        email_notifications: settingsData.email_notifications === 'true',
+        schedule_reminders: settingsData.schedule_reminders === 'true',
+        maintenance_mode: settingsData.maintenance_mode === 'true',
+      }));
     }
-  }, [session, setViewMode]);
-
-  const fetchSettings = async () => {
-    try {
-      const res = await fetch('/api/settings');
-      const data = await safeJson<Partial<SystemSettings>>(res);
-      if (data) {
-        setSettings(prev => ({
-          ...prev,
-          ...data,
-          // Convert string booleans to actual booleans
-          auto_generate_enabled: data.auto_generate_enabled === 'true',
-          conflict_detection_enabled: data.conflict_detection_enabled === 'true',
-          email_notifications: data.email_notifications === 'true',
-          schedule_reminders: data.schedule_reminders === 'true',
-          maintenance_mode: data.maintenance_mode === 'true',
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching settings:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkSeedStatus = async () => {
-    try {
-      const res = await fetch('/api/seed');
-      const data = await safeJson<{ seeded?: boolean }>(res);
-      if (data) {
-        setSeededStatus(data.seeded ?? null);
-      }
-    } catch (error) {
-      console.error('Error checking seed status:', error);
-    }
-  };
+  }, [settingsData]);
 
   const handleSeedDatabase = async () => {
     setSeeding(true);
@@ -133,7 +118,7 @@ export function SettingsView() {
       
       if (data?.success) {
         toast.success('Database seeded successfully! Demo data has been added.');
-        setSeededStatus(true);
+        refetchSeedStatus();
       } else {
         toast.error(data?.error || 'Failed to seed database');
       }

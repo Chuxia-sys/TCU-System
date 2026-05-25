@@ -5,7 +5,22 @@ import { getDepartmentFilter, isAdmin, isDeptHead, isFaculty } from '@/lib/dept-
 
 // Simple in-memory cache for stats
 const statsCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+// Monotonically increasing generation version — incremented by the generate
+// route after each successful generation so the dashboard can reliably detect
+// completion without relying on heuristic schedule-count comparisons.
+let generationVersion = 0;
+
+/** Increment the generation version (called by the generate route on completion). */
+export function incrementGenerationVersion(): void {
+  generationVersion++;
+}
+
+/** Read the current generation version (for polling comparison). */
+export function getGenerationVersion(): number {
+  return generationVersion;
+}
 
 function getCacheKey(departmentIdParam?: string | null, facultyId?: string | null): string {
   return `stats:${departmentIdParam || 'all'}:${facultyId || 'all'}`;
@@ -24,6 +39,11 @@ function setCachedStats(key: string, data: any): void {
   statsCache.set(key, { data, timestamp: Date.now() });
 }
 
+/** Invalidate all cached stats (called by generate route after completion) */
+export function invalidateStatsCache(): void {
+  statsCache.clear();
+}
+
 // GET /api/stats
 export async function GET(request: NextRequest) {
   try {
@@ -36,12 +56,18 @@ export async function GET(request: NextRequest) {
     const departmentIdParam = searchParams.get('departmentId');
     const facultyId = searchParams.get('facultyId');
 
-    // Check cache first
+    // Check cache first (skip if ?refresh=1 is passed)
+    const forceRefresh = searchParams.get('refresh') === '1';
     const cacheKey = getCacheKey(departmentIdParam, facultyId);
-    const cachedData = getCachedStats(cacheKey);
-    if (cachedData) {
-      console.log(`[API] Cache hit for stats: ${cacheKey}`);
-      return NextResponse.json(cachedData);
+    if (!forceRefresh) {
+      const cachedData = getCachedStats(cacheKey);
+      if (cachedData) {
+        console.log(`[API] Cache hit for stats: ${cacheKey}`);
+        return NextResponse.json(cachedData);
+      }
+    } else {
+      // Remove stale cache entry before recomputing
+      statsCache.delete(cacheKey);
     }
 
     // Determine role-based filtering
@@ -85,6 +111,7 @@ export async function GET(request: NextRequest) {
           ...(departmentFilter && { departmentId: departmentFilter }),
           ...(filterFacultyId && { id: filterFacultyId }),
         },
+        take: 200,
         include: { department: true },
       }),
       db.schedule.findMany({
@@ -94,19 +121,23 @@ export async function GET(request: NextRequest) {
             : departmentFilter ? { sectionId: '__none__' } : {}),
           ...(filterFacultyId && { facultyId: filterFacultyId }),
         },
+        take: 500,
         include: { subject: true, faculty: true, room: true, section: true },
       }),
       db.conflict.findMany({
         where: {
           resolved: false,
         },
+        take: 100,
       }),
-      db.room.findMany().then(rooms => rooms.slice(0, 50)),
+      db.room.findMany({ take: 50 }),
       db.section.findMany({
         where: departmentFilter ? { departmentId: departmentFilter } : undefined,
+        take: 200,
       }),
       db.subject.findMany({
         where: departmentFilter ? { departmentId: departmentFilter } : undefined,
+        take: 200,
       }),
     ]);
 
@@ -203,6 +234,7 @@ export async function GET(request: NextRequest) {
       totalFaculty,
       totalSchedules,
       totalConflicts,
+      generationVersion,
       facultyUtilizationAvg,
       facultyUtilization,
       roomOccupancy,

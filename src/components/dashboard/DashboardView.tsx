@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store';
 import { StatsCard } from './StatsCard';
@@ -11,6 +12,14 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,29 +71,19 @@ type PreGenerationWarning = {
 export function DashboardView() {
   const { data: session } = useSession();
   const { triggerRefresh, initializeDepartmentFromSession } = useAppStore();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentSchedules, setRecentSchedules] = useState<Schedule[]>([]);
-  const [conflicts, setConflicts] = useState<Conflict[]>([]);
-  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [preGenerationWarnings, setPreGenerationWarnings] = useState<PreGenerationWarning[]>([]);
   const [bgGenerating, setBgGenerating] = useState(false);
+  const [selectedSemester, setSelectedSemester] = useState('1st Semester');
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartRef = useRef<number>(0);
-  const prevScheduleCountRef = useRef<number>(0);
+  const prevGenerationVersionRef = useRef<number>(-1);
 
   const isFaculty = session?.user?.role === 'faculty';
   const isDeptHead = session?.user?.role === 'department_head';
   const isAdmin = session?.user?.role === 'admin';
-
-  // Initialize department from session for dept_head isolation
-  useEffect(() => {
-    if (session?.user) {
-      initializeDepartmentFromSession(session.user.role, session.user.departmentId);
-    }
-  }, [session?.user, initializeDepartmentFromSession]);
 
   // Build department query param for dept_head users
   const getDeptParam = useCallback(() => {
@@ -93,22 +92,60 @@ export function DashboardView() {
       : '';
   }, [isDeptHead, session?.user?.departmentId]);
 
-  const pollForCompletion = useCallback(() => {
-    if (Date.now() - pollStartRef.current > 120_000) {
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-      setBgGenerating(false);
-      toast.info('Schedule generation is taking longer than expected. Check your notifications for updates.');
-      return;
-    }
+  const deptParam = getDeptParam();
+  const deptSuffix = deptParam ? `:${deptParam}` : ':all';
 
-    fetch(`/api/stats${getDeptParam()}`)
+  const { data: stats = null, isLoading: statsLoading, mutate: refetchStats } = useCachedQuery<DashboardStats | null>(
+    `dashboard:stats${deptSuffix}`,
+    async (signal) => {
+      const res = await fetch(`/api/stats${deptParam}`, { signal });
+      return safeJson<DashboardStats>(res);
+    }
+  );
+
+  const { data: recentSchedules = [], isLoading: schedulesLoading, mutate: refetchSchedules } = useCachedQuery<Schedule[]>(
+    `dashboard:schedules${deptSuffix}`,
+    async (signal) => {
+      const res = await fetch(`/api/schedules${deptParam}`, { signal });
+      const data = await safeJson<Schedule[]>(res);
+      return Array.isArray(data) ? data.slice(0, 5) : [];
+    }
+  );
+
+  const { data: conflicts = [], isLoading: conflictsLoading, mutate: refetchConflicts } = useCachedQuery<Conflict[]>(
+    'dashboard:conflicts',
+    async (signal) => {
+      const res = await fetch('/api/conflicts', { signal });
+      const data = await safeJson<{ conflicts?: Conflict[] }>(res);
+      return Array.isArray(data?.conflicts) ? data.conflicts.slice(0, 5) : [];
+    }
+  );
+
+  const loading = statsLoading || schedulesLoading || conflictsLoading;
+
+  // Initialize department from session for dept_head isolation
+  useEffect(() => {
+    if (session?.user) {
+      initializeDepartmentFromSession(session.user.role, session.user.departmentId);
+    }
+  }, [session?.user, initializeDepartmentFromSession]);
+
+  // Build fetchDashboardData as a refetch of all cached queries
+  const fetchDashboardData = useCallback(() => {
+    refetchStats();
+    refetchSchedules();
+    refetchConflicts();
+  }, [refetchStats, refetchSchedules, refetchConflicts]);
+
+  const pollForCompletion = useCallback(() => {
+    const elapsed = Date.now() - pollStartRef.current;
+
+    fetch(`/api/stats${deptParam}${deptParam ? '&' : '?'}refresh=1&_t=${Date.now()}`)
       .then(res => res.json())
       .then(statsData => {
-        const currentCount = statsData?.totalSchedules ?? 0;
-        if (currentCount > 0 && currentCount !== prevScheduleCountRef.current) {
+        const currentVersion = statsData?.generationVersion ?? -1;
+        // Generation version changed → background generation finished
+        if (currentVersion !== prevGenerationVersionRef.current) {
           if (pollTimerRef.current) {
             clearInterval(pollTimerRef.current);
             pollTimerRef.current = null;
@@ -116,47 +153,29 @@ export function DashboardView() {
           setBgGenerating(false);
           fetchDashboardData();
           triggerRefresh();
-          toast.success(`Schedule generation complete! ${currentCount} schedules created.`);
+          toast.success(
+            `Schedule generation complete! ${statsData?.totalSchedules ?? 0} schedules created.`,
+          );
+          return;
+        }
+        // After 5 min, slow polling to every 15s
+        if (elapsed > 300_000 && pollTimerRef.current) {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = setInterval(pollForCompletion, 15_000);
+          toast.info('Generation still running... Check the Schedules page or wait for a notification.', { duration: 4000 });
         }
       })
       .catch(() => {});
-  }, [getDeptParam, triggerRefresh]);
+  }, [deptParam, fetchDashboardData, triggerRefresh]);
 
   useEffect(() => {
-    fetchDashboardData();
     return () => {
       if (pollTimerRef.current) {
         clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
       }
     };
   }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      const deptParam = getDeptParam();
-      const [statsRes, schedulesRes, conflictsRes] = await Promise.all([
-        fetch(`/api/stats${deptParam}`),
-        fetch(`/api/schedules${deptParam}`),
-        fetch('/api/conflicts'),
-      ]);
-
-      const statsData = await safeJson(statsRes);
-      const schedulesData = await safeJson(schedulesRes);
-      const conflictsData = await safeJson(conflictsRes);
-
-      setStats(statsData);
-      setRecentSchedules(Array.isArray(schedulesData) ? schedulesData.slice(0, 5) : []);
-      setConflicts(Array.isArray(conflictsData?.conflicts) ? conflictsData.conflicts.slice(0, 5) : []);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-      setStats(null);
-      setRecentSchedules([]);
-      setConflicts([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleGenerateSchedules = () => {
     setShowConfirmDialog(true);
@@ -192,6 +211,7 @@ export function DashboardView() {
         body: JSON.stringify({ 
           clearExisting: true,
           detectedConflicts: preGenerationWarnings,
+          semester: selectedSemester,
         }),
       });
 
@@ -218,7 +238,7 @@ export function DashboardView() {
         setGenerating(false);
         setBgGenerating(true);
         toast.success(data.message || 'Schedule generation started. You\'ll be notified when it\'s complete.', { duration: 6000 });
-        prevScheduleCountRef.current = stats?.totalSchedules ?? 0;
+        prevGenerationVersionRef.current = stats?.generationVersion ?? -1;
         pollStartRef.current = Date.now();
         if (pollTimerRef.current) {
           clearInterval(pollTimerRef.current);
@@ -457,15 +477,33 @@ export function DashboardView() {
           </p>
         </div>
         {isAdmin && (
-          <Button
-            onClick={handleGenerateSchedules}
-            disabled={generating || bgGenerating}
-            size="lg"
-            className="w-full sm:w-auto bg-red-600 hover:bg-red-700 dark:bg-[#EF4444] dark:hover:bg-[#DC2626] text-white shadow-lg shadow-red-500/20 dark:shadow-[#EF4444]/20 transition-all duration-200 hover:-translate-y-0.5 rounded-xl"
-          >
-            <Zap className={`mr-2 h-4 w-4 ${bgGenerating ? 'animate-pulse' : ''}`} />
+          <div className="flex flex-col sm:flex-row items-end gap-3">
+            <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+              <Label className="text-xs text-muted-foreground">Semester</Label>
+              <Select
+                value={selectedSemester}
+                onValueChange={setSelectedSemester}
+              >
+                <SelectTrigger className="w-full sm:w-45 h-9 text-sm">
+                  <SelectValue placeholder="Select semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1st Semester">1st Semester</SelectItem>
+                  <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                  <SelectItem value="Summer">Summer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleGenerateSchedules}
+              disabled={generating || bgGenerating}
+              size="lg"
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 dark:bg-[#EF4444] dark:hover:bg-[#DC2626] text-white shadow-lg shadow-red-500/20 dark:shadow-[#EF4444]/20 transition-all duration-200 hover:-translate-y-0.5 rounded-xl"
+            >
+              <Zap className={`mr-2 h-4 w-4 ${bgGenerating ? 'animate-pulse' : ''}`} />
             {generating ? 'Starting...' : bgGenerating ? 'Generating in background...' : 'Generate Schedules'}
           </Button>
+          </div>
         )}
       </motion.div>
 
@@ -713,16 +751,32 @@ export function DashboardView() {
               Generate Schedules
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-3 mt-2">
+              <div className="space-y-4 mt-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium dark:text-[#F8FAFC]">Select Semester *</label>
+                  <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                    <SelectTrigger className="dark:bg-[#334155] dark:border-[#475569] dark:text-[#F8FAFC]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1st Semester">1st Semester</SelectItem>
+                      <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                      <SelectItem value="Summer">Summer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground dark:text-[#94A3B8]">
+                    Only subjects assigned to this semester will be included in the generated schedule.
+                  </p>
+                </div>
                 <p className="dark:text-[#CBD5E1]">
-                  This will generate a new schedule for all sections, faculty, and subjects in the system.
+                  This will generate a new schedule for all sections and faculty in {selectedSemester}.
                 </p>
                 <div className="bg-muted/50 dark:bg-[#334155]/30 rounded-xl p-4 space-y-2">
                   <p className="text-sm font-medium dark:text-[#F8FAFC]">What happens when you proceed:</p>
                   <ul className="text-sm text-muted-foreground dark:text-[#94A3B8] space-y-1.5">
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400 mt-0.5 shrink-0" />
-                      <span>Existing schedules will be cleared</span>
+                      <span>Existing schedules for {selectedSemester} will be cleared</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400 mt-0.5 shrink-0" />

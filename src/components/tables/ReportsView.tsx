@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,11 +85,8 @@ const TCU_GRADIENT = {
 export function ReportsView() {
   const { data: session } = useSession();
   const { initializeDepartmentFromSession } = useAppStore();
-  const [stats, setStats] = useState<ReportStats | null>(null);
-  const [loading, setLoading] = useState(true);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [reportType, setReportType] = useState<'overview' | 'faculty' | 'schedules' | 'rooms'>('overview');
-  const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([]);
 
   const isDeptHead = session?.user?.role === 'department_head';
   const deptHeadDepartmentId = isDeptHead ? session?.user?.departmentId : null;
@@ -107,37 +105,25 @@ export function ReportsView() {
     }
   }, [isDeptHead, deptHeadDepartmentId]);
 
-  // Fetch departments for the filter dropdown
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        const res = await fetch('/api/departments');
-        const data = await safeJson<Array<{ id: string; name: string }>>(res);
-        if (Array.isArray(data)) {
-          setDepartments(data);
-        }
-      } catch {
-        // Silently fail - department filter is optional
-      }
-    };
-    fetchDepartments();
-  }, []);
-
-  useEffect(() => {
-    fetchStats();
-  }, [selectedDepartment]);
-
-  const fetchStats = async () => {
-    try {
-      const res = await fetch(`/api/stats${selectedDepartment !== 'all' ? `?departmentId=${selectedDepartment}` : ''}`);
-      const data = await safeJson<ReportStats>(res);
-      setStats(data);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    } finally {
-      setLoading(false);
+  const { data: departments = [], isLoading: deptsLoading } = useCachedQuery<Array<{ id: string; name: string }>>(
+    'departments:all',
+    async (signal) => {
+      const res = await fetch('/api/departments', { signal });
+      const data = await safeJson<Array<{ id: string; name: string }>>(res);
+      return Array.isArray(data) ? data : [];
     }
-  };
+  );
+
+  const statsKey = selectedDepartment !== 'all' ? `reports:stats:${selectedDepartment}` : 'reports:stats:all';
+  const { data: stats = null, isLoading: statsLoading } = useCachedQuery<ReportStats | null>(
+    statsKey,
+    async (signal) => {
+      const res = await fetch(`/api/stats${selectedDepartment !== 'all' ? `?departmentId=${selectedDepartment}` : ''}`, { signal });
+      return safeJson<ReportStats>(res);
+    }
+  );
+
+  const loading = deptsLoading || statsLoading;
 
   const handleExport = (format: 'csv' | 'pdf') => {
     if (!stats) return;

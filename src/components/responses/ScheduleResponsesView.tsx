@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -77,34 +78,18 @@ type ScheduleResponse = {
 };
 
 export function ScheduleResponsesView() {
-  const [responses, setResponses] = useState<ScheduleResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: responses = [], isLoading: loading } = useCachedQuery<ScheduleResponse[]>(
+    'schedule-responses:all',
+    async (signal) => {
+      const res = await fetch('/api/schedule-responses', { signal });
+      const data = await safeJson<ScheduleResponse[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedResponse, setSelectedResponse] = useState<ScheduleResponse | null>(null);
-
-  useEffect(() => {
-    fetchResponses();
-  }, []);
-
-  const fetchResponses = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/schedule-responses');
-      const data = await safeJson(res);
-      if (Array.isArray(data)) {
-        setResponses(data);
-      } else {
-        setResponses([]);
-      }
-    } catch (error) {
-      console.error('Error fetching responses:', error);
-      toast.error('Failed to fetch schedule responses');
-      setResponses([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredResponses = responses.filter((response) => {
     const matchesSearch =

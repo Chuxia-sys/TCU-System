@@ -81,6 +81,7 @@ model Subject {
   description            String?
   units                  Int
   departmentId           String
+  semester               String   @default("1st Semester")
   requiredSpecialization String   @default("[]")
   isActive               Boolean  @default(true)
   createdAt              DateTime @default(now())
@@ -90,6 +91,7 @@ model Subject {
   schedules              Schedule[]
 
   @@index([departmentId])
+  @@index([departmentId, semester])
 }
 
 model Room {

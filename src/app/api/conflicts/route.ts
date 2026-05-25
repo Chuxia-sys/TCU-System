@@ -210,11 +210,12 @@ export async function GET(request: NextRequest) {
     const conflicts = await db.conflict.findMany({
       where: resolved !== null ? { resolved: resolved === 'true' } : undefined,
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
 
     // Enrich with schedule details and apply role-based filtering
     const enrichedConflicts = await Promise.all(
-      conflicts.map(async (conflict) => {
+      conflicts.slice(0, 50).map(async (conflict) => {
         let schedule1 = null;
         let schedule2 = null;
         let faculty = null;

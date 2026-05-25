@@ -48,6 +48,7 @@ export interface Subject {
   description?: string | null;
   units: number;
   departmentId: string;
+  semester: string;
   requiredSpecialization: string[];
   isActive: boolean;
   createdAt: Date;

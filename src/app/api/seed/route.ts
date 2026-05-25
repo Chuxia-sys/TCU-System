@@ -238,7 +238,7 @@ export async function POST() {
     const rooms = await Promise.all([
       db.room.upsert({
         where: { roomName: 'Room 101' },
-        update: { roomCode: 'R101', capacity: 40, equipment: '["Projector", "Whiteboard"]', building: 'Main Building', floor: 1 },
+        update: { roomCode: 'R101', capacity: 40, equipment: '["Projector", "Whiteboard"]', building: 'Main Building', floor: 1, isActive: true },
         create: {
           roomName: 'Room 101',
           roomCode: 'R101',
@@ -246,11 +246,12 @@ export async function POST() {
           equipment: '["Projector", "Whiteboard"]',
           building: 'Main Building',
           floor: 1,
+          isActive: true,
         },
       }),
       db.room.upsert({
         where: { roomName: 'Room 102' },
-        update: { roomCode: 'R102', capacity: 35, equipment: '["Projector", "Whiteboard"]', building: 'Main Building', floor: 1 },
+        update: { roomCode: 'R102', capacity: 35, equipment: '["Projector", "Whiteboard"]', building: 'Main Building', floor: 1, isActive: true },
         create: {
           roomName: 'Room 102',
           roomCode: 'R102',
@@ -258,11 +259,12 @@ export async function POST() {
           equipment: '["Projector", "Whiteboard"]',
           building: 'Main Building',
           floor: 1,
+          isActive: true,
         },
       }),
       db.room.upsert({
         where: { roomName: 'Room 201' },
-        update: { roomCode: 'R201', capacity: 45, equipment: '["Projector", "Whiteboard", "Audio System"]', building: 'Main Building', floor: 2 },
+        update: { roomCode: 'R201', capacity: 45, equipment: '["Projector", "Whiteboard", "Audio System"]', building: 'Main Building', floor: 2, isActive: true },
         create: {
           roomName: 'Room 201',
           roomCode: 'R201',
@@ -270,11 +272,12 @@ export async function POST() {
           equipment: '["Projector", "Whiteboard", "Audio System"]',
           building: 'Main Building',
           floor: 2,
+          isActive: true,
         },
       }),
       db.room.upsert({
         where: { roomName: 'Computer Lab A' },
-        update: { roomCode: 'LAB-A', capacity: 30, equipment: '["Computers", "Projector", "Air Conditioning"]', building: 'IT Building', floor: 2 },
+        update: { roomCode: 'LAB-A', capacity: 30, equipment: '["Computers", "Projector", "Air Conditioning"]', building: 'IT Building', floor: 2, isActive: true },
         create: {
           roomName: 'Computer Lab A',
           roomCode: 'LAB-A',
@@ -282,11 +285,12 @@ export async function POST() {
           equipment: '["Computers", "Projector", "Air Conditioning"]',
           building: 'IT Building',
           floor: 2,
+          isActive: true,
         },
       }),
       db.room.upsert({
         where: { roomName: 'Computer Lab B' },
-        update: { roomCode: 'LAB-B', capacity: 30, equipment: '["Computers", "Projector", "Air Conditioning"]', building: 'IT Building', floor: 2 },
+        update: { roomCode: 'LAB-B', capacity: 30, equipment: '["Computers", "Projector", "Air Conditioning"]', building: 'IT Building', floor: 2, isActive: true },
         create: {
           roomName: 'Computer Lab B',
           roomCode: 'LAB-B',
@@ -294,6 +298,7 @@ export async function POST() {
           equipment: '["Computers", "Projector", "Air Conditioning"]',
           building: 'IT Building',
           floor: 2,
+          isActive: true,
         },
       }),
     ]);
@@ -303,7 +308,7 @@ export async function POST() {
     const subjects = await Promise.all([
       db.subject.upsert({
         where: { subjectCode: 'CS101' },
-        update: { subjectName: 'Introduction to Programming', description: 'Fundamentals of programming using Python', units: 3, departmentId: csDept.id },
+        update: { subjectName: 'Introduction to Programming', description: 'Fundamentals of programming using Python', units: 3, departmentId: csDept.id, semester: '1st Semester' },
         create: {
           subjectCode: 'CS101',
           subjectName: 'Introduction to Programming',
@@ -311,11 +316,12 @@ export async function POST() {
           units: 3,
           departmentId: csDept.id,
           requiredSpecialization: '[]',
+          semester: '1st Semester',
         },
       }),
       db.subject.upsert({
         where: { subjectCode: 'CS102' },
-        update: { subjectName: 'Data Structures and Algorithms', description: 'Study of data structures and algorithm design', units: 3, departmentId: csDept.id },
+        update: { subjectName: 'Data Structures and Algorithms', description: 'Study of data structures and algorithm design', units: 3, departmentId: csDept.id, semester: '1st Semester' },
         create: {
           subjectCode: 'CS102',
           subjectName: 'Data Structures and Algorithms',
@@ -323,11 +329,12 @@ export async function POST() {
           units: 3,
           departmentId: csDept.id,
           requiredSpecialization: '["Computer Science"]',
+          semester: '1st Semester',
         },
       }),
       db.subject.upsert({
         where: { subjectCode: 'CS103' },
-        update: { subjectName: 'Database Management Systems', description: 'Relational database design and SQL', units: 3, departmentId: csDept.id },
+        update: { subjectName: 'Database Management Systems', description: 'Relational database design and SQL', units: 3, departmentId: csDept.id, semester: '1st Semester' },
         create: {
           subjectCode: 'CS103',
           subjectName: 'Database Management Systems',
@@ -335,11 +342,12 @@ export async function POST() {
           units: 3,
           departmentId: csDept.id,
           requiredSpecialization: '["Database Systems"]',
+          semester: '1st Semester',
         },
       }),
       db.subject.upsert({
         where: { subjectCode: 'CS104' },
-        update: { subjectName: 'Web Development', description: 'HTML, CSS, JavaScript and modern frameworks', units: 3, departmentId: csDept.id },
+        update: { subjectName: 'Web Development', description: 'HTML, CSS, JavaScript and modern frameworks', units: 3, departmentId: csDept.id, semester: '1st Semester' },
         create: {
           subjectCode: 'CS104',
           subjectName: 'Web Development',
@@ -347,11 +355,12 @@ export async function POST() {
           units: 3,
           departmentId: csDept.id,
           requiredSpecialization: '["Web Development"]',
+          semester: '1st Semester',
         },
       }),
       db.subject.upsert({
         where: { subjectCode: 'CS105' },
-        update: { subjectName: 'Object-Oriented Programming', description: 'OOP concepts using Java', units: 3, departmentId: csDept.id },
+        update: { subjectName: 'Object-Oriented Programming', description: 'OOP concepts using Java', units: 3, departmentId: csDept.id, semester: '1st Semester' },
         create: {
           subjectCode: 'CS105',
           subjectName: 'Object-Oriented Programming',
@@ -359,6 +368,7 @@ export async function POST() {
           units: 3,
           departmentId: csDept.id,
           requiredSpecialization: '["Programming"]',
+          semester: '1st Semester',
         },
       }),
     ]);
@@ -368,57 +378,62 @@ export async function POST() {
     const sections = await Promise.all([
       db.section.upsert({
         where: { sectionName: '1CS-A' },
-        update: { sectionCode: '1CS-A', yearLevel: 1, departmentId: csDept.id, studentCount: 35 },
+        update: { sectionCode: '1CS-A', yearLevel: 1, departmentId: csDept.id, studentCount: 35, isActive: true },
         create: {
           sectionName: '1CS-A',
           sectionCode: '1CS-A',
           yearLevel: 1,
           departmentId: csDept.id,
           studentCount: 35,
+          isActive: true,
         },
       }),
       db.section.upsert({
         where: { sectionName: '1CS-B' },
-        update: { sectionCode: '1CS-B', yearLevel: 1, departmentId: csDept.id, studentCount: 32 },
+        update: { sectionCode: '1CS-B', yearLevel: 1, departmentId: csDept.id, studentCount: 32, isActive: true },
         create: {
           sectionName: '1CS-B',
           sectionCode: '1CS-B',
           yearLevel: 1,
           departmentId: csDept.id,
           studentCount: 32,
+          isActive: true,
         },
       }),
       db.section.upsert({
         where: { sectionName: '2CS-A' },
-        update: { sectionCode: '2CS-A', yearLevel: 2, departmentId: csDept.id, studentCount: 30 },
+        update: { sectionCode: '2CS-A', yearLevel: 2, departmentId: csDept.id, studentCount: 30, isActive: true },
         create: {
           sectionName: '2CS-A',
           sectionCode: '2CS-A',
           yearLevel: 2,
           departmentId: csDept.id,
           studentCount: 30,
+          isActive: true,
         },
       }),
       db.section.upsert({
         where: { sectionName: '2CS-B' },
-        update: { sectionCode: '2CS-B', yearLevel: 2, departmentId: csDept.id, studentCount: 28 },
+        update: { sectionCode: '2CS-B', yearLevel: 2, departmentId: csDept.id, studentCount: 28, isActive: true },
         create: {
           sectionName: '2CS-B',
           sectionCode: '2CS-B',
           yearLevel: 2,
           departmentId: csDept.id,
           studentCount: 28,
+          isActive: true,
         },
       }),
       db.section.upsert({
         where: { sectionName: '3CS-A' },
-        update: { sectionCode: '3CS-A', yearLevel: 3, departmentId: csDept.id, studentCount: 25 },
+        update: { sectionCode: '3CS-A', yearLevel: 3, departmentId: csDept.id, studentCount: 25, isActive: true },
         create: {
           sectionName: '3CS-A',
           sectionCode: '3CS-A',
           yearLevel: 3,
           departmentId: csDept.id,
           studentCount: 25,
+          isActive: true,
         },
       }),
     ]);

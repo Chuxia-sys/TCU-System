@@ -59,7 +59,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { subjectId, facultyId, sectionId, roomId, day, startTime, endTime, status, reason } = body;
+    const { subjectId, facultyId, sectionId, roomId, day, startTime, endTime, semester, status, reason } = body;
 
     // Get old schedule for logging
     const oldSchedule = await db.schedule.findUnique({
@@ -90,6 +90,7 @@ export async function PUT(
         day: day || oldSchedule.day,
         startTime: startTime || oldSchedule.startTime,
         endTime: endTime || oldSchedule.endTime,
+        semester: semester !== undefined ? semester : oldSchedule.semester,
         status: status || 'modified',
       },
       include: {

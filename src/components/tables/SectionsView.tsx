@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store';
 import { ColumnDef } from '@tanstack/react-table';
@@ -41,9 +42,36 @@ import { safeJson } from '@/lib/utils';
 export function SectionsView() {
   const { data: session } = useSession();
   const { initializeDepartmentFromSession } = useAppStore();
-  const [sections, setSections] = useState<Section[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const isDeptHead = session?.user?.role === 'department_head';
+  const deptHeadDepartmentId = isDeptHead ? session?.user?.departmentId : null;
+  const sectionsKey = isDeptHead && deptHeadDepartmentId
+    ? `sections:dept:${deptHeadDepartmentId}`
+    : 'sections:all';
+  const sectionsUrl = isDeptHead && deptHeadDepartmentId
+    ? `/api/sections?departmentId=${deptHeadDepartmentId}`
+    : '/api/sections';
+
+  const { data: sections = [], isLoading: sectionsLoading, mutate: refetchSections } = useCachedQuery<Section[]>(
+    sectionsKey,
+    async (signal) => {
+      const res = await fetch(sectionsUrl, { signal });
+      const data = await safeJson<Section[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const { data: departments = [], isLoading: deptsLoading, mutate: refetchDepartments } = useCachedQuery<Department[]>(
+    'departments:all',
+    async (signal) => {
+      const res = await fetch('/api/departments', { signal });
+      const data = await safeJson<Department[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const loading = sectionsLoading || deptsLoading;
+
   const [selectedSection, setSelectedSection] = useState<Section | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -51,44 +79,12 @@ export function SectionsView() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
-  const isDeptHead = session?.user?.role === 'department_head';
-  const deptHeadDepartmentId = isDeptHead ? session?.user?.departmentId : null;
-
   // Initialize department from session for dept_head isolation
   useEffect(() => {
     if (session?.user) {
       initializeDepartmentFromSession(session.user.role, session.user.departmentId);
     }
   }, [session?.user, initializeDepartmentFromSession]);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      // For dept_head, pass departmentId query param to filter to their department
-      const sectionsUrl = isDeptHead && deptHeadDepartmentId
-        ? `/api/sections?departmentId=${deptHeadDepartmentId}`
-        : '/api/sections';
-
-      const [sectionsRes, deptsRes] = await Promise.all([
-        fetch(sectionsUrl),
-        fetch('/api/departments'),
-      ]);
-
-      const sectionsData = await safeJson(sectionsRes);
-      const deptsData = await safeJson(deptsRes);
-
-      setSections(Array.isArray(sectionsData) ? sectionsData : []);
-      setDepartments(Array.isArray(deptsData) ? deptsData : []);
-    } catch (error) {
-      console.error('Error fetching sections:', error);
-      toast.error('Failed to load sections');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreate = () => {
     setSelectedSection(null);
@@ -160,11 +156,11 @@ export function SectionsView() {
         body: JSON.stringify(formData),
       });
 
-      const data = await safeJson<{ error?: string }>(res);
-      if (data) {
+      const data = await safeJson<{ error?: string; id?: string } & Record<string, unknown>>(res);
+      if (data && !('error' in data)) {
         toast.success(selectedSection ? 'Section updated' : 'Section created');
         setDialogOpen(false);
-        fetchData();
+        refetchSections();
       } else {
         toast.error('Operation failed');
       }
@@ -181,12 +177,13 @@ export function SectionsView() {
     try {
       const res = await fetch(`/api/sections/${selectedSection.id}`, { method: 'DELETE' });
       const data = await safeJson<{ error?: string }>(res);
-      if (data) {
+      if (data && !data.error) {
         toast.success('Section deleted');
         setDeleteDialogOpen(false);
-        fetchData();
+        setSelectedSection(null);
+        refetchSections();
       } else {
-        toast.error('Delete failed');
+        toast.error(data?.error || 'Delete failed');
       }
     } catch {
       toast.error('Delete failed');

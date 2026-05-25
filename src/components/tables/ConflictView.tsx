@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './DataTable';
 import { Button } from '@/components/ui/button';
@@ -58,8 +59,6 @@ interface ConflictWithDetails extends Conflict {
 }
 
 export function ConflictsView() {
-  const [conflicts, setConflicts] = useState<ConflictWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
   const [detecting, setDetecting] = useState(false);
   const [resolvingAll, setResolvingAll] = useState(false);
 
@@ -84,38 +83,29 @@ export function ConflictsView() {
     newRoomId: '',
     reason: '',
   });
-  const [rooms, setRooms] = useState<{ id: string; roomName: string; capacity: number; building: string }[]>([]);
 
   // Expandable rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  const fetchConflicts = useCallback(async () => {
-    try {
-      const res = await fetch('/api/conflicts');
+  const { data: conflicts = [], isLoading: conflictsLoading, mutate: refetchConflicts } = useCachedQuery<ConflictWithDetails[]>(
+    'conflicts:all',
+    async (signal) => {
+      const res = await fetch('/api/conflicts', { signal });
       const data = await safeJson<{ conflicts?: ConflictWithDetails[] }>(res);
-      setConflicts(data?.conflicts || []);
-    } catch (error) {
-      console.error('Error fetching conflicts:', error);
-      toast.error('Failed to load conflicts');
-    } finally {
-      setLoading(false);
+      return data?.conflicts || [];
     }
-  }, []);
+  );
 
-  const fetchRooms = useCallback(async () => {
-    try {
-      const res = await fetch('/api/rooms');
+  const { data: rooms = [], isLoading: roomsLoading } = useCachedQuery<{ id: string; roomName: string; capacity: number; building: string }[]>(
+    'rooms:all',
+    async (signal) => {
+      const res = await fetch('/api/rooms', { signal });
       const data = await safeJson<{ rooms?: { id: string; roomName: string; capacity: number; building: string }[] }>(res);
-      setRooms(data?.rooms || []);
-    } catch {
-      // Silently fail — rooms are optional
+      return data?.rooms || [];
     }
-  }, []);
+  );
 
-  useEffect(() => {
-    fetchConflicts();
-    fetchRooms();
-  }, [fetchConflicts, fetchRooms]);
+  const loading = conflictsLoading || roomsLoading;
 
   // ── Detect Conflicts ──
   const handleDetect = async () => {
@@ -125,7 +115,7 @@ export function ConflictsView() {
       const data = await safeJson<{ newCount?: number; existingCount?: number }>(res);
       if (res.ok) {
         toast.success(`Detected ${(data?.newCount ?? 0)} new conflicts (${data?.existingCount ?? 0} already known)`);
-        fetchConflicts();
+        refetchConflicts();
       } else {
         toast.error('Conflict detection failed');
       }
@@ -151,7 +141,7 @@ export function ConflictsView() {
         );
       }
       setResolveDialogOpen(false);
-      fetchConflicts();
+      refetchConflicts();
     } catch {
       toast.error('Auto-resolution failed');
     } finally {
@@ -169,7 +159,7 @@ export function ConflictsView() {
         toast.success(
           `Batch resolution: ${data?.resolved ?? 0} resolved, ${data?.escalated ?? 0} escalated out of ${data?.total ?? 0}`
         );
-        fetchConflicts();
+        refetchConflicts();
       } else {
         toast.error('Batch resolution failed');
       }
@@ -228,7 +218,7 @@ export function ConflictsView() {
       if (res.ok && data?.success) {
         toast.success(`Reassigned: ${data.message}`);
         setManualOpen(false);
-        fetchConflicts();
+        refetchConflicts();
       } else {
         toast.error(data?.message || 'Manual reassignment failed');
       }
@@ -252,7 +242,7 @@ export function ConflictsView() {
       if (res.ok) {
         toast.success('Conflict marked as resolved');
         setResolveDialogOpen(false);
-        fetchConflicts();
+        refetchConflicts();
       } else {
         toast.error('Failed to resolve conflict');
       }
@@ -426,7 +416,7 @@ export function ConflictsView() {
               {resolvingAll ? 'Resolving...' : 'Resolve All'}
             </Button>
           )}
-          <Button onClick={fetchConflicts} variant="outline" size="sm">
+          <Button onClick={() => refetchConflicts()} variant="outline" size="sm">
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>

@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
         ...(role && { role }),
         ...(filterDepartmentId && { departmentId: filterDepartmentId }),
       },
+      take: 200,
       include: {
         department: true,
         preferences: true,

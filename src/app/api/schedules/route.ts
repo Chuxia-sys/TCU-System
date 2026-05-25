@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
             ...(roomId && { roomId }),
             ...(day && { day }),
           },
+          take: 200,
           include: {
             subject: { include: { department: true } },
             faculty: { include: { department: true } },
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { subjectId, facultyId, sectionId, roomId, day, startTime, endTime } = body;
+    const { subjectId, facultyId, sectionId, roomId, day, startTime, endTime, semester } = body;
 
     if (!subjectId || !facultyId || !sectionId || !roomId || !day || !startTime || !endTime) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
@@ -151,6 +152,7 @@ export async function POST(request: NextRequest) {
         day,
         startTime,
         endTime,
+        semester: semester || null,
         status: conflicts.length > 0 ? 'conflict' : 'approved',
       },
       include: {

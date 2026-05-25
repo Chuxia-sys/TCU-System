@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store';
 import { ColumnDef } from '@tanstack/react-table';
@@ -61,10 +62,45 @@ import { safeJson } from '@/lib/utils';
 export function FacultyView() {
   const { data: session } = useSession();
   const { initializeDepartmentFromSession } = useAppStore();
-  const [faculty, setFaculty] = useState<User[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const isDeptHead = session?.user?.role === 'department_head';
+  const deptHeadDepartmentId = isDeptHead ? session?.user?.departmentId : null;
+  const facultyKey = isDeptHead && deptHeadDepartmentId
+    ? `faculty:dept:${deptHeadDepartmentId}`
+    : 'faculty:all';
+  const facultyUrl = isDeptHead && deptHeadDepartmentId
+    ? `/api/users?role=faculty&departmentId=${deptHeadDepartmentId}`
+    : '/api/users?role=faculty';
+
+  const { data: faculty = [], isLoading: facultyLoading, mutate: refetchFaculty } = useCachedQuery<User[]>(
+    facultyKey,
+    async (signal) => {
+      const res = await fetch(facultyUrl, { signal });
+      const data = await safeJson<User[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const { data: departments = [], isLoading: deptsLoading, mutate: refetchDepartments } = useCachedQuery<Department[]>(
+    'departments:all',
+    async (signal) => {
+      const res = await fetch('/api/departments', { signal });
+      const data = await safeJson<Department[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const { data: schedules = [], isLoading: schedulesLoading, mutate: refetchSchedules } = useCachedQuery<Schedule[]>(
+    'schedules:all',
+    async (signal) => {
+      const res = await fetch('/api/schedules', { signal });
+      const data = await safeJson<Schedule[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const loading = facultyLoading || deptsLoading || schedulesLoading;
+
   const [saving, setSaving] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState<User | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,47 +109,12 @@ export function FacultyView() {
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const isDeptHead = session?.user?.role === 'department_head';
-  const deptHeadDepartmentId = isDeptHead ? session?.user?.departmentId : null;
-
   // Initialize department from session for dept_head isolation
   useEffect(() => {
     if (session?.user) {
       initializeDepartmentFromSession(session.user.role, session.user.departmentId);
     }
   }, [session?.user, initializeDepartmentFromSession]);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      // For dept_head, pass departmentId query param to filter to their department
-      const facultyUrl = isDeptHead && deptHeadDepartmentId
-        ? `/api/users?role=faculty&departmentId=${deptHeadDepartmentId}`
-        : '/api/users?role=faculty';
-
-      const [usersRes, deptsRes, schedulesRes] = await Promise.all([
-        fetch(facultyUrl),
-        fetch('/api/departments'),
-        fetch('/api/schedules'),
-      ]);
-
-      const usersData = await safeJson(usersRes);
-      const deptsData = await safeJson(deptsRes);
-      const schedulesData = await safeJson(schedulesRes);
-
-      setFaculty(Array.isArray(usersData) ? usersData : []);
-      setDepartments(Array.isArray(deptsData) ? deptsData : []);
-      setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
-    } catch (error) {
-      console.error('Error fetching faculty:', error);
-      toast.error('Failed to load faculty data');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getFacultyLoad = (facultyId: string) => {
     return schedules
@@ -156,7 +157,11 @@ export function FacultyView() {
 
   const handleViewSchedule = (user: User) => {
     setSelectedFaculty(user);
-    setScheduleViewOpen(true);
+    // Use setTimeout to let the DropdownMenu fully close before opening the
+    // dialog, preventing focus-management conflicts between the two portals.
+    setTimeout(() => {
+      setScheduleViewOpen(true);
+    }, 50);
   };
 
   const validateForm = () => {
@@ -207,11 +212,11 @@ export function FacultyView() {
         body: JSON.stringify(formData),
       });
 
-      const data = await safeJson<{ error?: string }>(res);
-      if (data) {
+      const data = await safeJson<{ error?: string; id?: string } & Record<string, unknown>>(res);
+      if (data && !('error' in data)) {
         toast.success(selectedFaculty ? 'Faculty updated successfully' : 'Faculty created successfully');
         setDialogOpen(false);
-        fetchData();
+        refetchFaculty();
       } else {
         toast.error('Operation failed');
       }
@@ -233,12 +238,14 @@ export function FacultyView() {
     try {
       const res = await fetch(`/api/users/${selectedFaculty.id}`, { method: 'DELETE' });
       const data = await safeJson<{ error?: string }>(res);
-      if (data) {
+      if (data && !data.error) {
         toast.success('Faculty deleted successfully');
         setDeleteDialogOpen(false);
-        fetchData();
+        // Optimistic update: remove from local state
+        setFaculty(prev => prev.filter(u => u.id !== selectedFaculty.id));
+        setSelectedFaculty(null);
       } else {
-        toast.error('Delete failed');
+        toast.error(data?.error || 'Delete failed');
       }
     } catch {
       toast.error('Delete failed');

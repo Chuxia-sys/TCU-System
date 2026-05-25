@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store';
 import { ColumnDef } from '@tanstack/react-table';
@@ -42,9 +43,36 @@ import { safeJson } from '@/lib/utils';
 export function SubjectsView() {
   const { data: session } = useSession();
   const { initializeDepartmentFromSession } = useAppStore();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const isDeptHead = session?.user?.role === 'department_head';
+  const deptHeadDepartmentId = isDeptHead ? session?.user?.departmentId : null;
+  const subjectsKey = isDeptHead && deptHeadDepartmentId
+    ? `subjects:dept:${deptHeadDepartmentId}`
+    : 'subjects:all';
+  const subjectsUrl = isDeptHead && deptHeadDepartmentId
+    ? `/api/subjects?departmentId=${deptHeadDepartmentId}`
+    : '/api/subjects';
+
+  const { data: subjects = [], isLoading: subjectsLoading, mutate: refetchSubjects } = useCachedQuery<Subject[]>(
+    subjectsKey,
+    async (signal) => {
+      const res = await fetch(subjectsUrl, { signal });
+      const data = await safeJson<Subject[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const { data: departments = [], isLoading: deptsLoading, mutate: refetchDepartments } = useCachedQuery<Department[]>(
+    'departments:all',
+    async (signal) => {
+      const res = await fetch('/api/departments', { signal });
+      const data = await safeJson<Department[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const loading = subjectsLoading || deptsLoading;
+
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -52,44 +80,12 @@ export function SubjectsView() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
-  const isDeptHead = session?.user?.role === 'department_head';
-  const deptHeadDepartmentId = isDeptHead ? session?.user?.departmentId : null;
-
   // Initialize department from session for dept_head isolation
   useEffect(() => {
     if (session?.user) {
       initializeDepartmentFromSession(session.user.role, session.user.departmentId);
     }
   }, [session?.user, initializeDepartmentFromSession]);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      // For dept_head, pass departmentId query param to filter to their department
-      const subjectsUrl = isDeptHead && deptHeadDepartmentId
-        ? `/api/subjects?departmentId=${deptHeadDepartmentId}`
-        : '/api/subjects';
-
-      const [subjectsRes, deptsRes] = await Promise.all([
-        fetch(subjectsUrl),
-        fetch('/api/departments'),
-      ]);
-
-      const subjectsData = await safeJson(subjectsRes);
-      const deptsData = await safeJson(deptsRes);
-
-      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
-      setDepartments(Array.isArray(deptsData) ? deptsData : []);
-    } catch (error) {
-      console.error('Error fetching subjects:', error);
-      toast.error('Failed to load subjects');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreate = () => {
     setSelectedSubject(null);
@@ -101,6 +97,7 @@ export function SubjectsView() {
       description: '',
       units: 3,
       departmentId: preselectedDept,
+      semester: '1st Semester',
       requiredSpecialization: [],
     });
     setFormErrors({});
@@ -115,6 +112,7 @@ export function SubjectsView() {
       description: subject.description || '',
       units: subject.units,
       departmentId: subject.departmentId,
+      semester: subject.semester || '1st Semester',
       requiredSpecialization: subject.requiredSpecialization,
     });
     setFormErrors({});
@@ -163,11 +161,11 @@ export function SubjectsView() {
         body: JSON.stringify(formData),
       });
 
-      const data = await safeJson<{ error?: string }>(res);
+      const data = await safeJson<{ error?: string; subject?: Subject }>(res);
       if (data) {
         toast.success(selectedSubject ? 'Subject updated' : 'Subject created');
         setDialogOpen(false);
-        fetchData();
+        refetchSubjects();
       } else {
         toast.error('Operation failed');
       }
@@ -187,7 +185,8 @@ export function SubjectsView() {
       if (data) {
         toast.success('Subject deleted');
         setDeleteDialogOpen(false);
-        fetchData();
+        setSelectedSubject(null);
+        refetchSubjects();
       } else {
         toast.error('Delete failed');
       }
@@ -231,6 +230,15 @@ export function SubjectsView() {
           <span className="text-muted-foreground">-</span>
         );
       },
+    },
+    {
+      accessorKey: 'semester',
+      header: 'Semester',
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="text-xs">
+          {row.original.semester || '1st Semester'}
+        </Badge>
+      ),
     },
     {
       id: 'actions',
@@ -369,6 +377,25 @@ export function SubjectsView() {
                   </p>
                 )}
                 {formErrors.departmentId && <p className="text-xs text-destructive">{formErrors.departmentId}</p>}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Semester *</Label>
+              <div className="space-y-1">
+                <Select
+                  value={formData.semester as string || '1st Semester'}
+                  onValueChange={(value) => setFormData({ ...formData, semester: value })}
+                >
+                  <SelectTrigger className={formErrors.semester ? 'border-destructive' : ''}>
+                    <SelectValue placeholder="Select semester" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1st Semester">1st Semester</SelectItem>
+                    <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                    <SelectItem value="Summer">Summer</SelectItem>
+                  </SelectContent>
+                </Select>
+                {formErrors.semester && <p className="text-xs text-destructive">{formErrors.semester}</p>}
               </div>
             </div>
           </div>

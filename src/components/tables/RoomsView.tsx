@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './DataTable';
 import { Button } from '@/components/ui/button';
@@ -30,31 +31,21 @@ import type { Room } from '@/types';
 import { safeJson } from '@/lib/utils';
 
 export function RoomsView() {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rooms = [], isLoading: loading, mutate: refetchRooms } = useCachedQuery<Room[]>(
+    'rooms:all',
+    async (signal) => {
+      const res = await fetch('/api/rooms', { signal });
+      const data = await safeJson<Room[]>(res);
+      return data || [];
+    }
+  );
+
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetchRooms();
-  }, []);
-
-  const fetchRooms = async () => {
-    try {
-      const res = await fetch('/api/rooms');
-      const data = await safeJson(res);
-      setRooms(data || []);
-    } catch (error) {
-      console.error('Error fetching rooms:', error);
-      toast.error('Failed to load rooms');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCreate = () => {
     setSelectedRoom(null);
@@ -122,11 +113,11 @@ export function RoomsView() {
         body: JSON.stringify(formData),
       });
 
-      const data = await safeJson<{ error?: string }>(res);
-      if (data) {
+      const data = await safeJson<{ error?: string; id?: string } & Record<string, unknown>>(res);
+      if (data && !('error' in data)) {
         toast.success(selectedRoom ? 'Room updated' : 'Room created');
         setDialogOpen(false);
-        fetchRooms();
+        refetchRooms();
       } else {
         toast.error('Operation failed');
       }
@@ -143,12 +134,13 @@ export function RoomsView() {
     try {
       const res = await fetch(`/api/rooms/${selectedRoom.id}`, { method: 'DELETE' });
       const data = await safeJson<{ error?: string }>(res);
-      if (data) {
+      if (data && !data.error) {
         toast.success('Room deleted');
         setDeleteDialogOpen(false);
-        fetchRooms();
+        setSelectedRoom(null);
+        refetchRooms();
       } else {
-        toast.error('Delete failed');
+        toast.error(data?.error || 'Delete failed');
       }
     } catch {
       toast.error('Delete failed');

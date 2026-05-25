@@ -14,24 +14,30 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const queryDepartmentId = searchParams.get('departmentId');
+    const querySemester = searchParams.get('semester');
 
     // Enforce department head isolation: dept_head can only see their own department
     // Admin sees everything (with optional departmentId filter from query params)
     const forcedDepartmentId = getDepartmentFilter(session as Parameters<typeof getDepartmentFilter>[0]);
     const departmentId = forcedDepartmentId || queryDepartmentId;
 
+    const whereClause: any = {};
+    if (departmentId) whereClause.departmentId = departmentId;
+    if (querySemester) whereClause.semester = querySemester;
+
     const subjects = await optimizationService.executeOptimizedQuery({
       descriptor: {
         collection: 'subjects',
-        where: departmentId ? { departmentId } : undefined,
+        where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
         orderBy: [{ field: 'subjectCode', direction: 'asc' }],
         label: 'subjects-list',
       },
-      cacheKey: departmentId ? `subjects:dept:${departmentId}` : 'subjects:all',
+      cacheKey: `subjects:${departmentId || 'all'}:${querySemester || 'all'}`,
       cacheTtlMs: 10 * 60 * 1000,
       fetcher: async () => {
         return db.subject.findMany({
-          where: departmentId ? { departmentId } : undefined,
+          where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+          take: 200,
           include: {
             department: true,
             _count: { select: { schedules: true } },
@@ -69,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { subjectCode, subjectName, description, units, departmentId, requiredSpecialization } = body;
+    const { subjectCode, subjectName, description, units, departmentId, requiredSpecialization, semester = '1st Semester' } = body;
 
     if (!subjectCode || !subjectName || !units || !departmentId) {
       return NextResponse.json({ error: 'Subject code, name, units, and department are required' }, { status: 400 });
@@ -93,6 +99,7 @@ export async function POST(request: NextRequest) {
         description,
         units,
         departmentId,
+        semester,
         requiredSpecialization: JSON.stringify(requiredSpecialization || []),
       },
       include: { department: true },

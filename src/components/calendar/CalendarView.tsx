@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useCachedQuery } from '@/hooks/use-cached-query';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -390,15 +391,16 @@ function OverlapOverflowCard({
 function InfoTile({ icon, label, value, className }: { icon: React.ReactNode; label: string; value: string; className?: string }) {
   return (
     <div className={cn(
-      'flex items-start gap-2 sm:gap-3 rounded-lg sm:rounded-xl p-2 sm:p-3',
-      'bg-[#F3F4F6] dark:bg-[#444951] border border-gray-200/60 dark:border-white/[0.08]',
-      'transition-colors duration-200',
+      'flex items-start gap-3 sm:gap-4 rounded-xl sm:rounded-2xl p-4 sm:p-5',
+      'bg-muted/40 dark:bg-[#444951]/60 border border-gray-200/60 dark:border-white/[0.08]',
+      'transition-all duration-200 hover:shadow-sm hover:border-gray-300/80 dark:hover:border-white/[0.15]',
+      'h-full',
       className,
     )}>
       <div className="text-gray-400 dark:text-[#9CA3AF] mt-0.5 shrink-0">{icon}</div>
-      <div className="min-w-0">
-        <p className="text-[9px] sm:text-[10px] text-gray-400 dark:text-[#9CA3AF] uppercase tracking-wider font-semibold">{label}</p>
-        <p className="text-xs sm:text-sm font-semibold truncate text-gray-800 dark:text-white mt-0.5">{value}</p>
+      <div className="min-w-0 space-y-1">
+        <p className="text-[10px] sm:text-xs text-muted-foreground dark:text-[#9CA3AF] uppercase tracking-wide font-semibold">{label}</p>
+        <p className="text-sm sm:text-base font-bold text-gray-800 dark:text-white truncate">{value}</p>
       </div>
     </div>
   );
@@ -472,11 +474,6 @@ function EmptyState() {
 // ─── Main Calendar View ───────────────────────────────────────────────
 export function CalendarView() {
   const { data: session } = useSession();
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [faculty, setFaculty] = useState<UserType[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>('all');
   const [now] = useState(new Date());
@@ -493,42 +490,43 @@ export function CalendarView() {
     }
   }, [isFaculty, session?.user?.id, setCalendarFilters]);
 
-  // Fetch data on mount and when lastRefresh changes (after generation)
-  useEffect(() => {
-    if (session?.user) {
-      fetchData();
+  const { data: schedules = [], isLoading: schedulesLoading, mutate: refetchSchedules } = useCachedQuery<Schedule[]>(
+    'schedules:all',
+    async (signal) => {
+      const res = await fetch('/api/schedules', { signal });
+      const data = await safeJson<Schedule[]>(res);
+      return Array.isArray(data) ? data : [];
     }
-  }, [session?.user, lastRefresh]);
+  );
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [schedulesRes, usersRes, sectionsRes, roomsRes] = await Promise.all([
-        fetch('/api/schedules'),
-        fetch('/api/users?role=faculty'),
-        fetch('/api/sections'),
-        fetch('/api/rooms'),
-      ]);
-
-      const schedulesData = await safeJson<Schedule[]>(schedulesRes);
-      const usersData = await safeJson<UserType[]>(usersRes);
-      const sectionsData = await safeJson<Section[]>(sectionsRes);
-      const roomsData = await safeJson<Room[]>(roomsRes);
-
-      setSchedules(Array.isArray(schedulesData) ? schedulesData : []);
-      setFaculty(Array.isArray(usersData) ? usersData : []);
-      setSections(Array.isArray(sectionsData) ? sectionsData : []);
-      setRooms(Array.isArray(roomsData) ? roomsData : []);
-    } catch (error) {
-      console.error('Error fetching calendar data:', error);
-      setSchedules([]);
-      setFaculty([]);
-      setSections([]);
-      setRooms([]);
-    } finally {
-      setLoading(false);
+  const { data: faculty = [], isLoading: facultyLoading } = useCachedQuery<UserType[]>(
+    'faculty:all',
+    async (signal) => {
+      const res = await fetch('/api/users?role=faculty', { signal });
+      const data = await safeJson<UserType[]>(res);
+      return Array.isArray(data) ? data : [];
     }
-  }, []);
+  );
+
+  const { data: sections = [], isLoading: sectionsLoading } = useCachedQuery<Section[]>(
+    'sections:all',
+    async (signal) => {
+      const res = await fetch('/api/sections', { signal });
+      const data = await safeJson<Section[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const { data: rooms = [], isLoading: roomsLoading } = useCachedQuery<Room[]>(
+    'rooms:all',
+    async (signal) => {
+      const res = await fetch('/api/rooms', { signal });
+      const data = await safeJson<Room[]>(res);
+      return Array.isArray(data) ? data : [];
+    }
+  );
+
+  const loading = schedulesLoading || facultyLoading || sectionsLoading || roomsLoading;
 
   // Filtered schedules
   const filteredSchedules = useMemo(() => {
@@ -1114,12 +1112,12 @@ export function CalendarView() {
 
           return (
             <DialogContent
-              className="!p-0 !gap-0 !overflow-hidden !rounded-lg sm:!rounded-2xl !border-0 !shadow-none dark:!shadow-none w-[95vw] sm:w-full sm:max-w-lg max-h-[90vh] sm:max-h-none flex flex-col"
+              className="!p-0 !gap-0 !overflow-hidden !rounded-xl sm:!rounded-2xl !border-0 !shadow-xl dark:!shadow-2xl w-[95vw] sm:w-full sm:max-w-2xl max-h-[90vh] sm:max-h-none flex flex-col"
               showCloseButton={false}
             >
               {/* ── Header — ALWAYS RED in both modes ─────────────── */}
               <div className={cn(
-                'relative px-3 sm:px-5 pt-3 sm:pt-5 pb-3 sm:pb-4 flex-shrink-0',
+                'relative p-4 sm:p-6 flex-shrink-0 space-y-3 sm:space-y-3.5',
                 // Light: #C0392B, Dark: #9B2218 (darker red, not dark surface)
                 'bg-[#C0392B] dark:bg-[#9B2218]',
                 'transition-colors duration-300',
@@ -1128,21 +1126,21 @@ export function CalendarView() {
                 <button
                   onClick={() => setSelectedSchedule(null)}
                   className={cn(
-                    'absolute top-2.5 sm:top-3.5 right-2.5 sm:right-3.5',
-                    'flex items-center justify-center h-6 sm:h-7 w-6 sm:w-7 rounded-full',
+                    'absolute top-3 sm:top-4 right-3 sm:right-4',
+                    'flex items-center justify-center h-7 sm:h-8 w-7 sm:w-8 rounded-full',
                     'bg-white/20 backdrop-blur-md border border-white/20',
                     'text-white/80 hover:text-white hover:bg-white/30',
                     'transition-all duration-200',
                   )}
                 >
-                  <X className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
+                  <X className="h-3.5 sm:h-4 w-3.5 sm:w-4" />
                 </button>
 
                 {/* Icon + Title row */}
-                <div className="flex items-start gap-2 sm:gap-3.5 pr-8">
+                <div className="flex items-start gap-3 sm:gap-4 pr-10">
                   {/* Icon container — semi-transparent white square */}
                   <div className={cn(
-                    'w-9 sm:w-11 h-9 sm:h-11 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0',
+                    'w-10 sm:w-12 h-10 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0',
                     'bg-white/20 backdrop-blur-sm border border-white/15',
                   )}>
                     <BookOpen className="h-4 sm:h-5 w-4 sm:w-5 text-white" />
@@ -1151,7 +1149,7 @@ export function CalendarView() {
                     <DialogTitle className="!text-sm sm:!text-lg !font-bold !text-white !leading-tight truncate">
                       {selectedSchedule.subject?.subjectName || 'Unknown Subject'}
                     </DialogTitle>
-                    <DialogDescription className="!text-white/60 !mt-0.5 sm:!mt-1 !text-xs">
+                    <DialogDescription className="!text-white/60 !mt-0.5 sm:!mt-1 !text-xs sm:!text-sm">
                       {selectedSchedule.subject?.subjectCode}
                       {selectedSchedule.section?.sectionName && ` · ${selectedSchedule.section.sectionName}`}
                     </DialogDescription>
@@ -1159,7 +1157,7 @@ export function CalendarView() {
                 </div>
 
                 {/* Quick Info Pills — same style in both modes (on red header) */}
-                <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2.5 sm:mt-3.5">
+                <div className="flex flex-wrap gap-2">
                   <QuickPill icon={<Clock className="h-2.5 sm:h-3 w-2.5 sm:w-3" />}>
                     <span className="text-xs sm:text-sm">{formatTime12Hour(selectedSchedule.startTime)} – {formatTime12Hour(selectedSchedule.endTime)}</span>
                   </QuickPill>
@@ -1187,13 +1185,13 @@ export function CalendarView() {
 
               {/* ── Body ─────────────────────────────────────────────── */}
               <div className={cn(
-                'px-3 sm:px-5 py-3 sm:py-4 space-y-2.5 sm:space-y-3.5 overflow-y-auto flex-1',
+                'p-4 sm:p-6 space-y-5 overflow-y-auto flex-1',
                 // Light: white, Dark: #393E46
                 'bg-white dark:bg-[#393E46]',
                 'transition-colors duration-300',
               )}>
                 {/* Information Card Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <InfoTile
                     icon={<User className="h-3.5 sm:h-4 w-3.5 sm:w-4" />}
                     label="Faculty"
@@ -1216,30 +1214,25 @@ export function CalendarView() {
                 )}
 
                 {/* Extra info row: Section + Department */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <InfoTile
                     icon={<Users className="h-3.5 sm:h-4 w-3.5 sm:w-4" />}
                     label="Section"
                     value={selectedSchedule.section?.sectionName || 'N/A'}
+                    className={!selectedSchedule.subject?.department && !selectedSchedule.faculty?.department ? 'md:col-span-2' : ''}
                   />
-                  {selectedSchedule.subject?.department ? (
+                  {(selectedSchedule.subject?.department || selectedSchedule.faculty?.department) && (
                     <InfoTile
-                      icon={<GraduationCap className="h-3.5 sm:h-4 w-3.5 sm:w-4" />}
+                      icon={selectedSchedule.subject?.department ? <GraduationCap className="h-3.5 sm:h-4 w-3.5 sm:w-4" /> : <Layers className="h-3.5 sm:h-4 w-3.5 sm:w-4" />}
                       label="Department"
-                      value={selectedSchedule.subject.department.name}
+                      value={selectedSchedule.subject?.department?.name || selectedSchedule.faculty?.department?.name || ''}
                     />
-                  ) : selectedSchedule.faculty?.department ? (
-                    <InfoTile
-                      icon={<Layers className="h-3.5 sm:h-4 w-3.5 sm:w-4" />}
-                      label="Department"
-                      value={selectedSchedule.faculty.department.name}
-                    />
-                  ) : null}
+                  )}
                 </div>
 
                 {/* Conflict warning */}
                 {isConflict && (
-                  <div className="flex items-start gap-2 sm:gap-2.5 p-2.5 sm:p-3 rounded-lg sm:rounded-xl bg-red-50 dark:bg-[rgba(185,28,28,0.08)] border border-red-200/60 dark:border-white/[0.08]">
+                  <div className="flex items-start gap-3 sm:gap-4 p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-red-50 dark:bg-[rgba(185,28,28,0.08)] border border-red-200/60 dark:border-white/[0.08]">
                     <AlertTriangle className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-red-500 dark:text-red-400 shrink-0 mt-0.5" />
                     <div>
                       <p className="text-xs sm:text-sm font-semibold text-red-700 dark:text-red-400">Schedule Conflict</p>
@@ -1253,7 +1246,7 @@ export function CalendarView() {
 
               {/* ── Footer Actions ────────────────────────────────────── */}
               <div className={cn(
-                'px-3 sm:px-5 py-2.5 sm:py-3.5 flex items-center justify-end gap-2 sm:gap-2.5 flex-shrink-0',
+                'px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-end gap-3 flex-shrink-0',
                 'border-t border-gray-100 dark:border-white/[0.08]',
                 'bg-white dark:bg-[#393E46]',
                 'transition-colors duration-300',

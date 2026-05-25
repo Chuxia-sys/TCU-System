@@ -51,7 +51,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { subjectCode, subjectName, description, units, departmentId, requiredSpecialization, isActive } = body;
+    const { subjectCode, subjectName, description, units, departmentId, semester, requiredSpecialization, isActive } = body;
 
     // Department heads can only update subjects in their department
     if (isDeptHead && !isAdmin) {
@@ -69,6 +69,7 @@ export async function PUT(
         description,
         units,
         departmentId,
+        semester,
         requiredSpecialization: JSON.stringify(requiredSpecialization || []),
         isActive: isActive ?? true,
       },
