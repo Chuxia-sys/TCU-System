@@ -2,7 +2,7 @@
   "indexes": [
     {
       "collectionGroup": "rooms",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {"fieldPath": "building", "order": "ASCENDING"},
         {"fieldPath": "roomName", "order": "ASCENDING"},
@@ -11,7 +11,7 @@
     },
     {
       "collectionGroup": "users",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {"fieldPath": "role", "order": "ASCENDING"},
         {"fieldPath": "name", "order": "ASCENDING"},
@@ -20,7 +20,7 @@
     },
     {
       "collectionGroup": "sections",
-      "queryScope": "Collection",
+      "queryScope": "COLLECTION",
       "fields": [
         {"fieldPath": "yearLevel", "order": "ASCENDING"},
         {"fieldPath": "sectionName", "order": "ASCENDING"},

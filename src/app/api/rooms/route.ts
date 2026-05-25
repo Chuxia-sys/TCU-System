@@ -14,18 +14,24 @@ export async function GET() {
     const rooms = await optimizationService.executeOptimizedQuery({
       descriptor: {
         collection: 'rooms',
-        orderBy: [{ field: 'building', direction: 'asc' }, { field: 'roomName', direction: 'asc' }],
         label: 'rooms-list',
       },
       cacheKey: 'rooms:all',
       cacheTtlMs: 10 * 60 * 1000,
       fetcher: async () => {
-        return db.room.findMany({
+        const allRooms = await db.room.findMany({
           include: {
             _count: { select: { schedules: true } },
           },
-          orderBy: [{ building: 'asc' }, { roomName: 'asc' }],
         });
+        // Sort in memory to avoid composite index requirement
+        allRooms.sort((a, b) => {
+          if (a.building !== b.building) {
+            return (a.building || '').localeCompare(b.building || '');
+          }
+          return (a.roomName || '').localeCompare(b.roomName || '');
+        });
+        return allRooms;
       },
     });
 

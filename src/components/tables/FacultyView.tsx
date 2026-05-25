@@ -47,6 +47,12 @@ import {
   Phone,
   Building2,
   Lock,
+  Calendar,
+  Clock,
+  MapPin,
+  BookOpen,
+  X,
+  Layers,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { User, Department, Schedule } from '@/types';
@@ -63,6 +69,7 @@ export function FacultyView() {
   const [selectedFaculty, setSelectedFaculty] = useState<User | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [scheduleViewOpen, setScheduleViewOpen] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -145,6 +152,11 @@ export function FacultyView() {
     });
     setFormErrors({});
     setDialogOpen(true);
+  };
+
+  const handleViewSchedule = (user: User) => {
+    setSelectedFaculty(user);
+    setScheduleViewOpen(true);
   };
 
   const validateForm = () => {
@@ -240,16 +252,19 @@ export function FacultyView() {
       cell: ({ row }) => {
         const user = row.original;
         return (
-          <div className="flex items-center gap-3">
+          <button
+            onClick={() => handleViewSchedule(user)}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+          >
             <Avatar className="h-8 w-8">
               <AvatarImage src={user.image || ''} />
               <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <div>
+            <div className="text-left">
               <p className="font-medium">{user.name}</p>
               <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
-          </div>
+          </button>
         );
       },
     },
@@ -313,6 +328,10 @@ export function FacultyView() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleViewSchedule(user)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Schedule
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleEdit(user)}>
                 <Pencil className="mr-2 h-4 w-4" />
                 Edit
@@ -404,9 +423,12 @@ export function FacultyView() {
             searchPlaceholder="Search faculty..."
             mobileCardRender={(user) => (
               <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
+                <div className="flex items-start justify-between gap-3">
+                  <button
+                    onClick={() => handleViewSchedule(user)}
+                    className="flex items-center gap-3 flex-1 hover:opacity-80 transition-opacity cursor-pointer text-left"
+                  >
+                    <Avatar className="h-10 w-10 flex-shrink-0">
                       <AvatarImage src={user.image || ''} />
                       <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
@@ -414,7 +436,7 @@ export function FacultyView() {
                       <p className="font-medium">{user.name}</p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                     </div>
-                  </div>
+                  </button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
@@ -422,6 +444,10 @@ export function FacultyView() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleViewSchedule(user)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Schedule
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleEdit(user)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit
@@ -584,6 +610,184 @@ export function FacultyView() {
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="w-full sm:w-auto">Cancel</Button>
             <Button variant="destructive" onClick={confirmDelete} className="w-full sm:w-auto">Delete</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule View Dialog — Calendar Styling */}
+      <Dialog open={scheduleViewOpen} onOpenChange={setScheduleViewOpen}>
+        <DialogContent
+          className="!p-0 !gap-0 !overflow-visible !rounded-lg sm:!rounded-2xl !border-0 !shadow-lg dark:!shadow-lg w-[95vw] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col"
+          showCloseButton={false}
+        >
+          {selectedFaculty && (
+            <>
+              {/* ── Header — RED (Calendar style) ──────────────────────── */}
+              <div className="relative px-3 sm:px-5 pt-3 sm:pt-5 pb-3 sm:pb-4 shrink-0 bg-[#C0392B] dark:bg-[#9B2218] transition-colors duration-300">
+                {/* Close button — frosted white pill matching header style */}
+                <button
+                  onClick={() => setScheduleViewOpen(false)}
+                  className="absolute top-2.5 sm:top-3.5 right-2.5 sm:right-3.5 flex items-center justify-center h-7 sm:h-8 w-7 sm:w-8 rounded-lg sm:rounded-lg bg-white/15 backdrop-blur-md border border-white/20 text-white hover:text-white hover:bg-white/25 transition-all duration-200"
+                >
+                  <X className="h-4 sm:h-4 w-4 sm:w-4" />
+                </button>
+
+                {/* Icon + Title */}
+                <div className="flex items-start gap-2 sm:gap-3.5 pr-8">
+                  <div className="w-9 sm:w-11 h-9 sm:h-11 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 bg-white/20 backdrop-blur-sm border border-white/15">
+                    <Calendar className="h-4 sm:h-5 w-4 sm:w-5 text-white" />
+                  </div>
+                  <div className="min-w-0 pt-0.5">
+                    <DialogTitle className="text-sm sm:text-lg font-bold text-white leading-tight truncate">
+                      {selectedFaculty.name}
+                    </DialogTitle>
+                    <DialogDescription className="text-white/60 mt-0.5 sm:mt-1 text-xs">
+                      Faculty Schedule
+                    </DialogDescription>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Body ──────────────────────────────────────────────────── */}
+              <div className="px-3 sm:px-5 py-3 sm:py-4 space-y-2.5 sm:space-y-3.5 overflow-y-auto flex-1 bg-white dark:bg-[#393E46] transition-colors duration-300">
+                {schedules.filter((s) => s.facultyId === selectedFaculty.id).length > 0 ? (
+                  <>
+                    {/* Schedule list */}
+                    <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                      {schedules
+                        .filter((s) => s.facultyId === selectedFaculty.id)
+                        .sort((a, b) => {
+                          const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                          const dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+                          if (dayDiff !== 0) return dayDiff;
+                          return a.startTime.localeCompare(b.startTime);
+                        })
+                        .map((schedule) => (
+                          <motion.div
+                            key={schedule.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                            whileHover={{ scale: 1.02 }}
+                            className="flex flex-col rounded-3xl p-4 sm:p-5 bg-white dark:bg-[#3a3f4a] border border-gray-200/50 dark:border-white/10 transition-all duration-300 hover:shadow-lg"
+                          >
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="text-gray-400 dark:text-[#9CA3AF] shrink-0">
+                                <BookOpen className="h-5 sm:h-6 w-5 sm:w-6" />
+                              </div>
+                              <Badge variant="outline" className="shrink-0 text-[9px] sm:text-[10px]">
+                                {schedule.status || 'scheduled'}
+                              </Badge>
+                            </div>
+                            <div className="mb-4">
+                              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-[#8a91a0] uppercase tracking-widest font-semibold">
+                                {schedule.subject?.subjectCode || 'N/A'}
+                              </p>
+                              <p className="text-sm sm:text-base font-bold text-gray-900 dark:text-white mt-1">
+                                {schedule.subject?.name || 'no subject found'}
+                              </p>
+                            </div>
+                            <div className="space-y-2.5 text-[10px] sm:text-xs text-gray-600 dark:text-[#9CA3AF]">
+                              <span className="flex items-center gap-2">
+                                <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                <span>{schedule.day}</span>
+                              </span>
+                              <span className="flex items-center gap-2">
+                                <Clock className="h-3.5 w-3.5 shrink-0" />
+                                <span>{schedule.startTime}–{schedule.endTime}</span>
+                              </span>
+                              <span className="flex items-center gap-2">
+                                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                <span>{schedule.room?.roomName || 'TBD'}</span>
+                              </span>
+                              <span className="flex items-center gap-2">
+                                <Users className="h-3.5 w-3.5 shrink-0" />
+                                <span>{schedule.section?.sectionName || 'N/A'}</span>
+                              </span>
+                            </div>
+                          </motion.div>
+                        ))}
+                    </div>
+
+                    {/* Summary Stats */}
+                    <div className="mt-4 pt-4 border-t border-gray-200/40 dark:border-white/5">
+                      <div className="grid grid-cols-3 gap-3">
+                        <motion.div whileHover={{ scale: 1.02 }} className="rounded-3xl p-4 sm:p-5 bg-white dark:bg-[#3a3f4a] border border-gray-200/50 dark:border-white/10 transition-all duration-300 hover:shadow-lg">
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <div className="text-gray-400 dark:text-[#9CA3AF] mt-0.5 shrink-0">
+                              <BookOpen className="h-5 sm:h-6 w-5 sm:w-6" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-[#8a91a0] uppercase tracking-widest font-semibold">Classes</p>
+                              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mt-1">
+                                {schedules.filter((s) => s.facultyId === selectedFaculty.id).length}
+                              </p>
+                            </div>
+                          </div>
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.02 }} className="rounded-3xl p-4 sm:p-5 bg-white dark:bg-[#3a3f4a] border border-gray-200/50 dark:border-white/10 transition-all duration-300 hover:shadow-lg">
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <div className="text-gray-400 dark:text-[#9CA3AF] mt-0.5 shrink-0">
+                              <Layers className="h-5 sm:h-6 w-5 sm:w-6" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-[#8a91a0] uppercase tracking-widest font-semibold">Units</p>
+                              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mt-1">
+                                {schedules
+                                  .filter((s) => s.facultyId === selectedFaculty.id)
+                                  .reduce((sum, s) => sum + (s.subject?.units || 0), 0)} / {selectedFaculty.maxUnits || 24}
+                              </p>
+                            </div>
+                          </div>
+                        </motion.div>
+                        <motion.div whileHover={{ scale: 1.02 }} className="rounded-3xl p-4 sm:p-5 bg-white dark:bg-[#3a3f4a] border border-gray-200/50 dark:border-white/10 transition-all duration-300 hover:shadow-lg">
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <div className="text-gray-400 dark:text-[#9CA3AF] mt-0.5 shrink-0">
+                              <Eye className="h-5 sm:h-6 w-5 sm:w-6" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-[#8a91a0] uppercase tracking-widest font-semibold">Load</p>
+                              <p className={`text-lg sm:text-xl font-bold mt-1 ${
+                                (schedules
+                                  .filter((s) => s.facultyId === selectedFaculty.id)
+                                  .reduce((sum, s) => sum + (s.subject?.units || 0), 0)) > (selectedFaculty.maxUnits || 24)
+                                  ? 'text-red-600 dark:text-red-400'
+                                  : 'text-gray-900 dark:text-white'
+                              }`}>
+                                {Math.round(
+                                  (schedules
+                                    .filter((s) => s.facultyId === selectedFaculty.id)
+                                    .reduce((sum, s) => sum + (s.subject?.units || 0), 0) / (selectedFaculty.maxUnits || 24)) * 100
+                                )}%
+                              </p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6">
+                    <Calendar className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                    <p className="text-xs sm:text-sm text-muted-foreground text-center">
+                      No schedule assignments found
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Footer ────────────────────────────────────────────────── */}
+              <div className="px-3 sm:px-5 py-2.5 sm:py-3.5 flex items-center justify-end gap-2 sm:gap-2.5 shrink-0 border-t border-gray-100 dark:border-white/8 bg-white dark:bg-[#393E46] transition-colors duration-300">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs sm:text-sm text-gray-500 dark:text-[#9CA3AF] hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/6 rounded-lg px-3 sm:px-4 h-8 sm:h-9"
+                  onClick={() => setScheduleViewOpen(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </motion.div>

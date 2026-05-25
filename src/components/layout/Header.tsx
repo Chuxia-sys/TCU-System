@@ -159,7 +159,7 @@ export function Header() {
   return (
     <header className="fixed top-0 right-0 left-0 md:left-auto z-30 flex h-14 md:h-[72px] items-center gap-2 sm:gap-4 border-b-0 bg-[#8b0000] dark:border-transparent dark:header-gradient px-4 lg:px-6 shrink-0 overflow-hidden">
       {/* Mobile: backdrop logo when sidebar is hidden */}
-      <div className="flex items-center gap-2.5 md:hidden shrink-0 ml-1">
+      <div className="flex items-center gap-2.5 md:hidden shrink-0 ml-[35px]">
         <div className="bg-white rounded-lg p-1 shrink-0">
           <Image
             src="/tcu-logo.png"

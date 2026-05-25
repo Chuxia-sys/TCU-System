@@ -25,7 +25,14 @@ export async function GET(request: NextRequest) {
         department: true,
         _count: { select: { schedules: true } },
       },
-      orderBy: [{ yearLevel: 'asc' }, { sectionName: 'asc' }],
+    });
+
+    // Sort in memory to avoid composite index requirement (orderBy + departmentId filter)
+    sections.sort((a, b) => {
+      if (a.yearLevel !== b.yearLevel) {
+        return (a.yearLevel || 0) - (b.yearLevel || 0);
+      }
+      return (a.sectionName || '').localeCompare(b.sectionName || '');
     });
 
     return NextResponse.json(sections);

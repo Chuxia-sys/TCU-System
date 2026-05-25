@@ -37,8 +37,10 @@ export async function GET(request: NextRequest) {
         preferences: true,
         _count: { select: { schedules: true } },
       },
-      orderBy: { name: 'asc' },
     });
+
+    // Sort in memory to avoid composite index requirement (orderBy + role filter)
+    users.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     const formattedUsers = users.map(user => ({
       ...user,

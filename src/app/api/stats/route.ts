@@ -3,6 +3,27 @@ import { db } from '@/lib/db';
 import { getAuthSession } from '@/lib/auth-session';
 import { getDepartmentFilter, isAdmin, isDeptHead, isFaculty } from '@/lib/dept-auth';
 
+// Simple in-memory cache for stats
+const statsCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCacheKey(departmentIdParam?: string | null, facultyId?: string | null): string {
+  return `stats:${departmentIdParam || 'all'}:${facultyId || 'all'}`;
+}
+
+function getCachedStats(key: string): any | null {
+  const cached = statsCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+  statsCache.delete(key);
+  return null;
+}
+
+function setCachedStats(key: string, data: any): void {
+  statsCache.set(key, { data, timestamp: Date.now() });
+}
+
 // GET /api/stats
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +35,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const departmentIdParam = searchParams.get('departmentId');
     const facultyId = searchParams.get('facultyId');
+
+    // Check cache first
+    const cacheKey = getCacheKey(departmentIdParam, facultyId);
+    const cachedData = getCachedStats(cacheKey);
+    if (cachedData) {
+      console.log(`[API] Cache hit for stats: ${cacheKey}`);
+      return NextResponse.json(cachedData);
+    }
 
     // Determine role-based filtering
     const userIsFaculty = isFaculty(session as Parameters<typeof isFaculty>[0]);
@@ -72,7 +101,7 @@ export async function GET(request: NextRequest) {
           resolved: false,
         },
       }),
-      db.room.findMany(),
+      db.room.findMany().then(rooms => rooms.slice(0, 50)),
       db.section.findMany({
         where: departmentFilter ? { departmentId: departmentFilter } : undefined,
       }),
@@ -170,7 +199,7 @@ export async function GET(request: NextRequest) {
       utilization: Math.round(((roomSchedules[r.id] || 0) / maxRoomSchedules) * 100),
     }));
 
-    return NextResponse.json({
+    const result = {
       totalFaculty,
       totalSchedules,
       totalConflicts,
@@ -188,7 +217,11 @@ export async function GET(request: NextRequest) {
       totalSubjects: subjects.length,
       isFacultyView: userIsFaculty,
       currentFacultyId: filterFacultyId || null,
-    });
+    };
+    
+    // Cache the result
+    setCachedStats(cacheKey, result);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching stats:', error);
     // Return default stats structure for easier frontend handling
