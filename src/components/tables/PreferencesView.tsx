@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useSubjects, useApiQuery } from '@/hooks/queries';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,21 +37,11 @@ export function PreferencesView() {
   const { data: session } = useSession();
   const [saving, setSaving] = useState(false);
 
-  const { data: subjects = [], isLoading: subjectsLoading } = useCachedQuery<Subject[]>(
-    'subjects:all',
-    async (signal) => {
-      const res = await fetch('/api/subjects', { signal });
-      const data = await safeJson<Subject[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: userData, isLoading: userLoading } = useCachedQuery<{ preferences?: FacultyPreference } | null>(
-    session?.user?.id ? `user:${session.user.id}` : null,
-    async (signal) => {
-      const res = await fetch(`/api/users/${session?.user?.id}`, { signal });
-      return safeJson<{ preferences?: FacultyPreference }>(res);
-    },
+  const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
+  const { data: userData, isLoading: userLoading } = useApiQuery<{ preferences?: FacultyPreference } | null>(
+    session?.user?.id ? ['users', 'detail', session.user.id] : ['users', 'me'],
+    `/api/users/${session?.user?.id}`,
+    undefined,
     { enabled: !!session?.user?.id }
   );
 

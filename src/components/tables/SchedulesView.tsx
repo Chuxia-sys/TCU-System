@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useSchedules, useFaculty, useSections, useRooms, useSubjects, useCreateSchedule, useUpdateSchedule, useDeleteSchedule } from '@/hooks/queries';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './DataTable';
 import { Button } from '@/components/ui/button';
@@ -41,7 +41,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
 import type { Schedule, User, Section, Room, Subject, DayOfWeek } from '@/types';
 import { DAYS, TIME_OPTIONS } from '@/types';
-import { formatTimeRange, safeJson } from '@/lib/utils';
+import { formatTimeRange } from '@/lib/utils';
 
 export function SchedulesView() {
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
@@ -50,55 +50,14 @@ export function SchedulesView() {
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const { data: schedules = [], isLoading: schedulesLoading, mutate: refetchSchedules } = useCachedQuery<Schedule[]>(
-    'schedules:all',
-    async (signal) => {
-      const res = await fetch('/api/schedules', { signal });
-      const data = await safeJson<Schedule[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: faculty = [], isLoading: facultyLoading } = useCachedQuery<User[]>(
-    'faculty:all',
-    async (signal) => {
-      const res = await fetch('/api/users?role=faculty', { signal });
-      const data = await safeJson<User[]>(res);
-      if (!Array.isArray(data) && 'error' in (data || {})) {
-        console.error('Faculty API error:', (data as { error: string }).error);
-        toast.error(`Failed to load faculty: ${(data as { error: string }).error}`);
-        return [];
-      }
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: sections = [], isLoading: sectionsLoading } = useCachedQuery<Section[]>(
-    'sections:all',
-    async (signal) => {
-      const res = await fetch('/api/sections', { signal });
-      const data = await safeJson<Section[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: rooms = [], isLoading: roomsLoading } = useCachedQuery<Room[]>(
-    'rooms:all',
-    async (signal) => {
-      const res = await fetch('/api/rooms', { signal });
-      const data = await safeJson<Room[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: subjects = [], isLoading: subjectsLoading } = useCachedQuery<Subject[]>(
-    'subjects:all',
-    async (signal) => {
-      const res = await fetch('/api/subjects', { signal });
-      const data = await safeJson<Subject[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
+  const { data: schedules = [], isLoading: schedulesLoading } = useSchedules();
+  const { data: faculty = [], isLoading: facultyLoading } = useFaculty();
+  const { data: sections = [], isLoading: sectionsLoading } = useSections();
+  const { data: rooms = [], isLoading: roomsLoading } = useRooms();
+  const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
+  const createSchedule = useCreateSchedule();
+  const updateSchedule = useUpdateSchedule();
+  const deleteSchedule = useDeleteSchedule();
 
   const loading = schedulesLoading || facultyLoading || sectionsLoading || roomsLoading || subjectsLoading;
 
@@ -166,32 +125,26 @@ export function SchedulesView() {
     if (!validateForm()) return;
 
     try {
-      const url = selectedSchedule ? `/api/schedules/${selectedSchedule.id}` : '/api/schedules';
-      const method = selectedSchedule ? 'PUT' : 'POST';
+      const payload = { ...formData, modifiedBy: 'current-user' };
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          modifiedBy: 'current-user',
-        }),
-      });
-
-      const data = await safeJson<{ conflicts?: unknown[]; error?: string }>(res);
-      if (data) {
-        if (data.conflicts && data.conflicts.length > 0) {
-          toast.warning(`Schedule ${selectedSchedule ? 'updated' : 'created'} with ${data.conflicts.length} conflict(s)`);
+      if (selectedSchedule) {
+        const result = await updateSchedule.mutateAsync({ id: selectedSchedule.id, ...payload } as any);
+        if (result && (result as any).conflicts?.length > 0) {
+          toast.warning(`Schedule updated with ${(result as any).conflicts.length} conflict(s)`);
         } else {
-          toast.success(selectedSchedule ? 'Schedule updated' : 'Schedule created');
+          toast.success('Schedule updated');
         }
-        setDialogOpen(false);
-        refetchSchedules();
       } else {
-        toast.error('Operation failed');
+        const result = await createSchedule.mutateAsync(payload as any);
+        if (result && (result as any).conflicts?.length > 0) {
+          toast.warning(`Schedule created with ${(result as any).conflicts.length} conflict(s)`);
+        } else {
+          toast.success('Schedule created');
+        }
       }
-    } catch {
-      toast.error('Operation failed');
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Operation failed');
     }
   };
 
@@ -199,20 +152,12 @@ export function SchedulesView() {
     if (!selectedSchedule) return;
 
     try {
-      const res = await fetch(`/api/schedules/${selectedSchedule.id}?modifiedBy=current-user`, {
-        method: 'DELETE'
-      });
-      const data = await safeJson<{ error?: string }>(res);
-      if (data && !data.error) {
-        toast.success('Schedule deleted');
-        setDeleteDialogOpen(false);
-        setSelectedSchedule(null);
-        refetchSchedules();
-      } else {
-        toast.error(data?.error || 'Delete failed');
-      }
-    } catch {
-      toast.error('Delete failed');
+      await deleteSchedule.mutateAsync(selectedSchedule.id);
+      toast.success('Schedule deleted');
+      setDeleteDialogOpen(false);
+      setSelectedSchedule(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Delete failed');
     }
   };  
 

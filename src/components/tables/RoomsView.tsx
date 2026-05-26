@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useRooms, useCreateRoom, useUpdateRoom, useDeleteRoom } from '@/hooks/queries';
+import { useQueryClient } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './DataTable';
 import { Button } from '@/components/ui/button';
@@ -28,17 +29,14 @@ import { toast } from 'sonner';
 import { Plus, MoreHorizontal, Pencil, Trash2, DoorOpen, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Room } from '@/types';
-import { safeJson } from '@/lib/utils';
+import { queryKeys } from '@/hooks/queries';
 
 export function RoomsView() {
-  const { data: rooms = [], isLoading: loading, mutate: refetchRooms } = useCachedQuery<Room[]>(
-    'rooms:all',
-    async (signal) => {
-      const res = await fetch('/api/rooms', { signal });
-      const data = await safeJson<Room[]>(res);
-      return data || [];
-    }
-  );
+  const queryClient = useQueryClient();
+  const { data: rooms = [], isLoading: loading, refetch: refetchRooms } = useRooms();
+  const createRoom = useCreateRoom();
+  const updateRoom = useUpdateRoom();
+  const deleteRoom = useDeleteRoom();
 
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -104,25 +102,16 @@ export function RoomsView() {
 
     setSaving(true);
     try {
-      const url = selectedRoom ? `/api/rooms/${selectedRoom.id}` : '/api/rooms';
-      const method = selectedRoom ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await safeJson<{ error?: string; id?: string } & Record<string, unknown>>(res);
-      if (data && !('error' in data)) {
-        toast.success(selectedRoom ? 'Room updated' : 'Room created');
-        setDialogOpen(false);
-        refetchRooms();
+      if (selectedRoom) {
+        await updateRoom.mutateAsync({ id: selectedRoom.id, ...formData } as any);
+        toast.success('Room updated');
       } else {
-        toast.error('Operation failed');
+        await createRoom.mutateAsync(formData as any);
+        toast.success('Room created');
       }
-    } catch {
-      toast.error('Operation failed');
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Operation failed');
     } finally {
       setSaving(false);
     }
@@ -132,18 +121,12 @@ export function RoomsView() {
     if (!selectedRoom) return;
 
     try {
-      const res = await fetch(`/api/rooms/${selectedRoom.id}`, { method: 'DELETE' });
-      const data = await safeJson<{ error?: string }>(res);
-      if (data && !data.error) {
-        toast.success('Room deleted');
-        setDeleteDialogOpen(false);
-        setSelectedRoom(null);
-        refetchRooms();
-      } else {
-        toast.error(data?.error || 'Delete failed');
-      }
-    } catch {
-      toast.error('Delete failed');
+      await deleteRoom.mutateAsync(selectedRoom.id);
+      toast.success('Room deleted');
+      setDeleteDialogOpen(false);
+      setSelectedRoom(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Delete failed');
     }
   };
 

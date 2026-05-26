@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useApiQuery, useDepartments } from '@/hooks/queries';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,23 +54,14 @@ export function ProfileView() {
 
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
 
-  const { data: userProfile, isLoading: profileLoading, mutate: refetchProfile } = useCachedQuery<{ name?: string; email?: string; phone?: string; image?: string } | null>(
-    session?.user?.id ? `user:${session.user.id}` : null,
-    async (signal) => {
-      const res = await fetch(`/api/users/${session?.user?.id}`, { signal });
-      return safeJson<{ name?: string; email?: string; phone?: string; image?: string }>(res);
-    },
+  const { data: userProfile, isLoading: profileLoading, refetch: refetchProfile } = useApiQuery<{ name?: string; email?: string; phone?: string; image?: string } | null>(
+    session?.user?.id ? ['users', 'detail', session.user.id] : ['users', 'me'],
+    `/api/users/${session?.user?.id}`,
+    undefined,
     { enabled: !!session?.user?.id }
   );
 
-  const { data: departments = [], isLoading: deptsLoading } = useCachedQuery<Department[]>(
-    'departments:all',
-    async (signal) => {
-      const res = await fetch('/api/departments', { signal });
-      const data = await safeJson<Department[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
+  const { data: departments = [], isLoading: deptsLoading } = useDepartments();
 
   const loading = profileLoading || deptsLoading;
 

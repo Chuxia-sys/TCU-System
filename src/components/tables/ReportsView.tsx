@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useApiQuery, useDepartments } from '@/hooks/queries';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,7 +50,6 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { safeJson } from '@/lib/utils';
 
 interface ReportStats {
   facultyByDepartment: Array<{ department: string; count: number }>;
@@ -105,22 +104,12 @@ export function ReportsView() {
     }
   }, [isDeptHead, deptHeadDepartmentId]);
 
-  const { data: departments = [], isLoading: deptsLoading } = useCachedQuery<Array<{ id: string; name: string }>>(
-    'departments:all',
-    async (signal) => {
-      const res = await fetch('/api/departments', { signal });
-      const data = await safeJson<Array<{ id: string; name: string }>>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const statsKey = selectedDepartment !== 'all' ? `reports:stats:${selectedDepartment}` : 'reports:stats:all';
-  const { data: stats = null, isLoading: statsLoading } = useCachedQuery<ReportStats | null>(
-    statsKey,
-    async (signal) => {
-      const res = await fetch(`/api/stats${selectedDepartment !== 'all' ? `?departmentId=${selectedDepartment}` : ''}`, { signal });
-      return safeJson<ReportStats>(res);
-    }
+  const { data: departments = [], isLoading: deptsLoading } = useDepartments();
+  const statsParams = selectedDepartment !== 'all' ? { departmentId: selectedDepartment } : undefined;
+  const { data: stats = null, isLoading: statsLoading } = useApiQuery<ReportStats | null>(
+    selectedDepartment !== 'all' ? ['reports', 'stats', selectedDepartment] : ['reports', 'stats', 'all'],
+    '/api/stats',
+    statsParams,
   );
 
   const loading = deptsLoading || statsLoading;

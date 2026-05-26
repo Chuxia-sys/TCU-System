@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from '@/hooks/queries';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,20 +35,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Notification } from '@/types';
-import { cn, safeJson } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store';
 
 export function NotificationsView() {
   const { data: session } = useSession();
-  const { data: notifications = [], isLoading: loading, mutate: refetchNotifications } = useCachedQuery<Notification[]>(
-    session?.user?.id ? `notifications:user:${session.user.id}` : null,
-    async (signal) => {
-      const res = await fetch(`/api/notifications?userId=${session?.user?.id}`, { signal });
-      const data = await safeJson<Notification[]>(res);
-      return data || [];
-    },
-    { enabled: !!session?.user?.id }
-  );
+  const { data: notifications = [], isLoading: loading } = useNotifications(session?.user?.id);
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
 
   const [clearAllOpen, setClearAllOpen] = useState(false);
   const setViewMode = useAppStore((state) => state.setViewMode);
@@ -73,12 +67,7 @@ export function NotificationsView() {
 
   const handleMarkAsRead = async (id: string) => {
     try {
-      await fetch('/api/notifications', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
-      refetchNotifications();
+      await markRead.mutateAsync(id);
     } catch {
       toast.error('Failed to update notification');
     }
@@ -86,12 +75,7 @@ export function NotificationsView() {
 
   const handleMarkAllRead = async () => {
     try {
-      await fetch('/api/notifications', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ markAllRead: true, userId: session?.user?.id }),
-      });
-      refetchNotifications();
+      await markAllRead.mutateAsync();
       toast.success('All notifications marked as read');
     } catch {
       toast.error('Failed to update notifications');
@@ -101,7 +85,6 @@ export function NotificationsView() {
   const handleDelete = async (id: string) => {
     try {
       await fetch(`/api/notifications?id=${id}`, { method: 'DELETE' });
-      refetchNotifications();
       toast.success('Notification deleted');
     } catch {
       toast.error('Failed to delete notification');
@@ -114,7 +97,6 @@ export function NotificationsView() {
       await Promise.all(readNotifications.map(n =>
         fetch(`/api/notifications?id=${n.id}`, { method: 'DELETE' })
       ));
-      refetchNotifications();
       setClearAllOpen(false);
       toast.success('Cleared all read notifications');
     } catch {

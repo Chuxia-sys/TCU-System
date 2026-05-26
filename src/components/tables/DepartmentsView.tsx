@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment } from '@/hooks/queries';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './DataTable';
 import { Button } from '@/components/ui/button';
@@ -28,17 +28,12 @@ import { toast } from 'sonner';
 import { Plus, MoreHorizontal, Pencil, Trash2, Building2, Users, BookOpen, GraduationCap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Department } from '@/types';
-import { safeJson } from '@/lib/utils';
 
 export function DepartmentsView() {
-  const { data: departments = [], isLoading: loading, mutate: refetchDepartments } = useCachedQuery<Department[]>(
-    'departments:all',
-    async (signal) => {
-      const res = await fetch('/api/departments', { signal });
-      const data = await safeJson<Department[]>(res);
-      return data || [];
-    }
-  );
+  const { data: departments = [], isLoading: loading, refetch: refetchDepartments } = useDepartments();
+  const createDepartment = useCreateDepartment();
+  const updateDepartment = useUpdateDepartment();
+  const deleteDepartment = useDeleteDepartment();
 
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -94,25 +89,16 @@ export function DepartmentsView() {
 
     setSaving(true);
     try {
-      const url = selectedDept ? `/api/departments/${selectedDept.id}` : '/api/departments';
-      const method = selectedDept ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await safeJson<{ error?: string; id?: string } & Record<string, unknown>>(res);
-      if (data && !('error' in data)) {
-        toast.success(selectedDept ? 'Department updated' : 'Department created');
-        setDialogOpen(false);
-        refetchDepartments();
+      if (selectedDept) {
+        await updateDepartment.mutateAsync({ id: selectedDept.id, ...formData } as any);
+        toast.success('Department updated');
       } else {
-        toast.error('Operation failed');
+        await createDepartment.mutateAsync(formData as any);
+        toast.success('Department created');
       }
-    } catch {
-      toast.error('Operation failed');
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Operation failed');
     } finally {
       setSaving(false);
     }
@@ -122,18 +108,12 @@ export function DepartmentsView() {
     if (!selectedDept) return;
 
     try {
-      const res = await fetch(`/api/departments/${selectedDept.id}`, { method: 'DELETE' });
-      const data = await safeJson<{ error?: string }>(res);
-      if (data && !data.error) {
-        toast.success('Department deleted');
-        setDeleteDialogOpen(false);
-        setSelectedDept(null);
-        refetchDepartments();
-      } else {
-        toast.error(data?.error || 'Delete failed');
-      }
-    } catch {
-      toast.error('Delete failed');
+      await deleteDepartment.mutateAsync(selectedDept.id);
+      toast.success('Department deleted');
+      setDeleteDialogOpen(false);
+      setSelectedDept(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Delete failed');
     }
   };
 

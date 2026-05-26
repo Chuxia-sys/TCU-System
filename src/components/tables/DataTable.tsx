@@ -188,9 +188,12 @@ export function DataTable<TData, TValue>({
           <span className="whitespace-nowrap">
             Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
           </span>
-          <span className="hidden sm:inline">|</span>
+          <span className="hidden sm:inline mx-1">|</span>
           <span className="hidden sm:inline whitespace-nowrap">
-            {table.getFilteredRowModel().rows.length} total rows
+            {table.getFilteredRowModel().rows.length} total
+          </span>
+          <span className="sm:hidden whitespace-nowrap">
+            ({table.getFilteredRowModel().rows.length} rows)
           </span>
         </div>
         <div className="flex items-center justify-between sm:justify-end gap-1 sm:gap-2 order-1 sm:order-2">

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useDashboardStats, useRecentSchedules, useRecentConflicts } from '@/hooks/queries';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store';
 import { StatsCard } from './StatsCard';
@@ -19,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,7 +52,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import type { DashboardStats, User as UserType, Schedule, Conflict } from '@/types';
-import { cn, safeJson } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 type FacultyInfo = {
   id: string;
@@ -95,31 +95,13 @@ export function DashboardView() {
   const deptParam = getDeptParam();
   const deptSuffix = deptParam ? `:${deptParam}` : ':all';
 
-  const { data: stats = null, isLoading: statsLoading, mutate: refetchStats } = useCachedQuery<DashboardStats | null>(
-    `dashboard:stats${deptSuffix}`,
-    async (signal) => {
-      const res = await fetch(`/api/stats${deptParam}`, { signal });
-      return safeJson<DashboardStats>(res);
-    }
+  const { data: stats = null, isLoading: statsLoading } = useDashboardStats(
+    isDeptHead ? session?.user?.departmentId : null
   );
-
-  const { data: recentSchedules = [], isLoading: schedulesLoading, mutate: refetchSchedules } = useCachedQuery<Schedule[]>(
-    `dashboard:schedules${deptSuffix}`,
-    async (signal) => {
-      const res = await fetch(`/api/schedules${deptParam}`, { signal });
-      const data = await safeJson<Schedule[]>(res);
-      return Array.isArray(data) ? data.slice(0, 5) : [];
-    }
+  const { data: recentSchedules = [], isLoading: schedulesLoading } = useRecentSchedules(
+    isDeptHead ? session?.user?.departmentId : null
   );
-
-  const { data: conflicts = [], isLoading: conflictsLoading, mutate: refetchConflicts } = useCachedQuery<Conflict[]>(
-    'dashboard:conflicts',
-    async (signal) => {
-      const res = await fetch('/api/conflicts', { signal });
-      const data = await safeJson<{ conflicts?: Conflict[] }>(res);
-      return Array.isArray(data?.conflicts) ? data.conflicts.slice(0, 5) : [];
-    }
-  );
+  const { data: conflicts = [], isLoading: conflictsLoading } = useRecentConflicts();
 
   const loading = statsLoading || schedulesLoading || conflictsLoading;
 
@@ -130,12 +112,14 @@ export function DashboardView() {
     }
   }, [session?.user, initializeDepartmentFromSession]);
 
+  const queryClient = useQueryClient();
+
   // Build fetchDashboardData as a refetch of all cached queries
   const fetchDashboardData = useCallback(() => {
-    refetchStats();
-    refetchSchedules();
-    refetchConflicts();
-  }, [refetchStats, refetchSchedules, refetchConflicts]);
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['schedules'] });
+    queryClient.invalidateQueries({ queryKey: ['conflicts'] });
+  }, [queryClient]);
 
   const pollForCompletion = useCallback(() => {
     const elapsed = Date.now() - pollStartRef.current;
@@ -477,33 +461,15 @@ export function DashboardView() {
           </p>
         </div>
         {isAdmin && (
-          <div className="flex flex-col sm:flex-row items-end gap-3">
-            <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-              <Label className="text-xs text-muted-foreground">Semester</Label>
-              <Select
-                value={selectedSemester}
-                onValueChange={setSelectedSemester}
-              >
-                <SelectTrigger className="w-full sm:w-45 h-9 text-sm">
-                  <SelectValue placeholder="Select semester" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1st Semester">1st Semester</SelectItem>
-                  <SelectItem value="2nd Semester">2nd Semester</SelectItem>
-                  <SelectItem value="Summer">Summer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              onClick={handleGenerateSchedules}
-              disabled={generating || bgGenerating}
-              size="lg"
-              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 dark:bg-[#EF4444] dark:hover:bg-[#DC2626] text-white shadow-lg shadow-red-500/20 dark:shadow-[#EF4444]/20 transition-all duration-200 hover:-translate-y-0.5 rounded-xl"
-            >
-              <Zap className={`mr-2 h-4 w-4 ${bgGenerating ? 'animate-pulse' : ''}`} />
-            {generating ? 'Starting...' : bgGenerating ? 'Generating in background...' : 'Generate Schedules'}
-          </Button>
-          </div>
+          <Button
+            onClick={handleGenerateSchedules}
+            disabled={generating || bgGenerating}
+            size="lg"
+            className="w-full sm:w-auto bg-red-600 hover:bg-red-700 dark:bg-[#EF4444] dark:hover:bg-[#DC2626] text-white shadow-lg shadow-red-500/20 dark:shadow-[#EF4444]/20 transition-all duration-200 hover:-translate-y-0.5 rounded-xl"
+          >
+            <Zap className={`mr-2 h-4 w-4 ${bgGenerating ? 'animate-pulse' : ''}`} />
+          {generating ? 'Starting...' : bgGenerating ? 'Generating in background...' : 'Generate Schedules'}
+        </Button>
         )}
       </motion.div>
 
@@ -742,67 +708,114 @@ export function DashboardView() {
         </Card>
       </motion.div>
 
-      {/* Confirmation Dialog */}
+      {/* ── Generate Schedule Confirmation Dialog ── */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent className="dark:bg-[#1E293B] dark:border-[#334155]">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 dark:text-[#F8FAFC]">
-              <Zap className="h-5 w-5 text-red-500 dark:text-[#EF4444]" />
-              Generate Schedules
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-4 mt-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium dark:text-[#F8FAFC]">Select Semester *</label>
-                  <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-                    <SelectTrigger className="dark:bg-[#334155] dark:border-[#475569] dark:text-[#F8FAFC]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1st Semester">1st Semester</SelectItem>
-                      <SelectItem value="2nd Semester">2nd Semester</SelectItem>
-                      <SelectItem value="Summer">Summer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground dark:text-[#94A3B8]">
-                    Only subjects assigned to this semester will be included in the generated schedule.
-                  </p>
-                </div>
-                <p className="dark:text-[#CBD5E1]">
-                  This will generate a new schedule for all sections and faculty in {selectedSemester}.
-                </p>
-                <div className="bg-muted/50 dark:bg-[#334155]/30 rounded-xl p-4 space-y-2">
-                  <p className="text-sm font-medium dark:text-[#F8FAFC]">What happens when you proceed:</p>
-                  <ul className="text-sm text-muted-foreground dark:text-[#94A3B8] space-y-1.5">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400 mt-0.5 shrink-0" />
-                      <span>Existing schedules for {selectedSemester} will be cleared</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400 mt-0.5 shrink-0" />
-                      <span>New schedules will be assigned based on faculty preferences</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400 mt-0.5 shrink-0" />
-                      <span>Conflicts will be detected and recorded</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400 mt-0.5 shrink-0" />
-                      <span>Faculty will be notified of their new assignments</span>
-                    </li>
-                  </ul>
-                </div>
-                <p className="text-sm text-muted-foreground dark:text-[#94A3B8]">
-                  The system will check for preference conflicts before generation.
+        <AlertDialogContent
+          className="sm:max-w-lg gap-0 p-0 overflow-hidden rounded-2xl border-0 shadow-2xl dark:shadow-black/50"
+        >
+          {/* Header */}
+          <div className="relative px-6 pt-6 pb-5 bg-linear-to-b from-red-600 to-red-700 dark:from-[#B91C1C] dark:to-[#991B1B]">
+            <div className="flex items-start gap-4">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm border border-white/15 shrink-0">
+                <Zap className="h-5 w-5 text-white" />
+              </div>
+              <div className="min-w-0 pt-0.5">
+                <AlertDialogTitle className="text-lg font-bold text-white leading-tight">
+                  Generate Schedules
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-white/65 text-sm mt-0.5">
+                  Fill in the details below to create class schedules for the selected semester.
+                </AlertDialogDescription>
+              </div>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="px-6 py-5 space-y-5 bg-white dark:bg-[#1E293B] max-h-[60vh] overflow-y-auto">
+            {/* Semester Selection Card */}
+            <div className="rounded-xl border border-gray-100 dark:border-[#334155] bg-gray-50/60 dark:bg-[#0F172A]/40 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-5 rounded-full bg-red-500 dark:bg-[#EF4444]" />
+                <span className="text-xs font-semibold text-gray-500 dark:text-[#94A3B8] uppercase tracking-wider">
+                  Schedule Configuration
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-gray-700 dark:text-[#F1F5F9]">
+                  Select Semester <span className="text-red-500 dark:text-[#EF4444]">*</span>
+                </label>
+                <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                  <SelectTrigger className="w-full h-10 bg-white dark:bg-[#1E293B] border-gray-200 dark:border-[#475569] dark:text-[#F8FAFC] rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-red-500/30 dark:focus:ring-[#EF4444]/30 transition-all duration-200">
+                    <SelectValue placeholder="Select semester" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1st Semester">1st Semester</SelectItem>
+                    <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                    <SelectItem value="Summer">Summer</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground dark:text-[#94A3B8] leading-relaxed">
+                  Only subjects assigned to this semester will be included in the generated schedule.
                 </p>
               </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="dark:bg-[#334155] dark:text-[#CBD5E1] dark:border-[#334155] dark:hover:bg-[#475569]">Cancel</AlertDialogCancel>
+            </div>
+
+            {/* What Happens Card */}
+            <div className="rounded-xl border border-gray-100 dark:border-[#334155] bg-gray-50/60 dark:bg-[#0F172A]/40 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                <span className="text-xs font-semibold text-gray-500 dark:text-[#94A3B8] uppercase tracking-wider">
+                  What Happens When You Proceed
+                </span>
+              </div>
+              <ul className="space-y-2.5">
+                {[
+                  {
+                    icon: CheckCircle2,
+                    color: 'text-emerald-500 dark:text-emerald-400',
+                    text: <>Existing schedules for <strong className="text-gray-800 dark:text-[#F1F5F9]">{selectedSemester}</strong> will be cleared</>,
+                  },
+                  {
+                    icon: CheckCircle2,
+                    color: 'text-emerald-500 dark:text-emerald-400',
+                    text: 'New schedules will be assigned based on faculty preferences',
+                  },
+                  {
+                    icon: CheckCircle2,
+                    color: 'text-emerald-500 dark:text-emerald-400',
+                    text: 'Conflicts will be detected and recorded',
+                  },
+                  {
+                    icon: CheckCircle2,
+                    color: 'text-emerald-500 dark:text-emerald-400',
+                    text: 'Faculty will be notified of their new assignments',
+                  },
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-gray-600 dark:text-[#94A3B8] leading-relaxed">
+                    <item.icon className={`h-4 w-4 mt-0.5 shrink-0 ${item.color}`} />
+                    <span>{item.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Info Banner */}
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50/80 dark:bg-amber-500/10 border border-amber-200/60 dark:border-amber-500/20">
+              <Info className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <p className="text-xs text-amber-700 dark:text-amber-300/90 leading-relaxed">
+                The system will check for preference conflicts before generation. Faculty with conflicting preferences will be flagged.
+              </p>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <AlertDialogFooter className="px-6 py-4 bg-gray-50/80 dark:bg-[#0F172A]/60 border-t border-gray-100 dark:border-[#1E293B]">
+            <AlertDialogCancel className="h-10 px-5 rounded-xl text-sm font-medium border-gray-200 dark:border-[#334155] dark:text-[#CBD5E1] dark:hover:bg-[#334155] dark:bg-transparent transition-all duration-200">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmGeneration}
-              className="bg-red-600 hover:bg-red-700 dark:bg-[#EF4444] dark:hover:bg-[#DC2626] text-white"
+              className="h-10 px-6 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-700 dark:bg-[#EF4444] dark:hover:bg-[#DC2626] text-white shadow-lg shadow-red-500/20 dark:shadow-[#EF4444]/20 transition-all duration-200 hover:-translate-y-0.5"
             >
               <Zap className="h-4 w-4 mr-2" />
               Start Generation

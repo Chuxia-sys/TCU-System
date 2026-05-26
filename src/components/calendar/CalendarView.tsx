@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useSchedules, useFaculty, useSections, useRooms } from '@/hooks/queries';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -490,41 +490,10 @@ export function CalendarView() {
     }
   }, [isFaculty, session?.user?.id, setCalendarFilters]);
 
-  const { data: schedules = [], isLoading: schedulesLoading, mutate: refetchSchedules } = useCachedQuery<Schedule[]>(
-    'schedules:all',
-    async (signal) => {
-      const res = await fetch('/api/schedules', { signal });
-      const data = await safeJson<Schedule[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: faculty = [], isLoading: facultyLoading } = useCachedQuery<UserType[]>(
-    'faculty:all',
-    async (signal) => {
-      const res = await fetch('/api/users?role=faculty', { signal });
-      const data = await safeJson<UserType[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: sections = [], isLoading: sectionsLoading } = useCachedQuery<Section[]>(
-    'sections:all',
-    async (signal) => {
-      const res = await fetch('/api/sections', { signal });
-      const data = await safeJson<Section[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: rooms = [], isLoading: roomsLoading } = useCachedQuery<Room[]>(
-    'rooms:all',
-    async (signal) => {
-      const res = await fetch('/api/rooms', { signal });
-      const data = await safeJson<Room[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
+  const { data: schedules = [], isLoading: schedulesLoading, refetch: refetchSchedules } = useSchedules();
+  const { data: faculty = [], isLoading: facultyLoading } = useFaculty();
+  const { data: sections = [], isLoading: sectionsLoading } = useSections();
+  const { data: rooms = [], isLoading: roomsLoading } = useRooms();
 
   const loading = schedulesLoading || facultyLoading || sectionsLoading || roomsLoading;
 
@@ -663,7 +632,7 @@ export function CalendarView() {
               {isFaculty ? 'My Schedule' : 'Schedule Calendar'}
             </h1>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchData}>
+          <Button variant="outline" size="sm" onClick={() => refetchSchedules()}>
             <RefreshCw className="h-4 w-4 mr-1.5" />Refresh
           </Button>
         </div>
@@ -693,7 +662,7 @@ export function CalendarView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchData}>
+          <Button variant="outline" size="sm" onClick={() => refetchSchedules()}>
             <RefreshCw className="h-4 w-4 mr-1.5" />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
@@ -827,11 +796,11 @@ export function CalendarView() {
       </Card>
 
       {/* ── Day pill navigation (mobile) ───────────────────────────── */}
-      <div className="flex md:hidden gap-2 overflow-x-auto pb-1 print:hidden scrollbar-none">
+      <div className="flex md:hidden gap-1.5 overflow-x-auto pb-1 print:hidden scrollbar-none -mx-4 px-4">
         <button
           onClick={() => setSelectedDay('all')}
           className={cn(
-            'flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all border',
+            'shrink-0 px-3 py-2 rounded-full text-xs font-medium transition-all border whitespace-nowrap',
             selectedDay === 'all'
               ? 'bg-primary text-primary-foreground border-primary shadow-sm'
               : 'bg-card border-border text-muted-foreground hover:bg-muted'
@@ -846,7 +815,7 @@ export function CalendarView() {
               key={day}
               onClick={() => setSelectedDay(selectedDay === day ? 'all' : day)}
               className={cn(
-                'flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all border',
+                'shrink-0 px-3 py-2 rounded-full text-xs font-medium transition-all border whitespace-nowrap',
                 selectedDay === day
                   ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                   : 'bg-card border-border text-muted-foreground hover:bg-muted'
@@ -854,7 +823,7 @@ export function CalendarView() {
             >
               <span className="block">{day.slice(0, 3)}</span>
               {count > 0 && (
-                <span className="block text-[10px] mt-0.5 opacity-80">{count}</span>
+                <span className="block text-[9px] mt-0.5 opacity-80">{count}</span>
               )}
             </button>
           );

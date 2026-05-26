@@ -23,7 +23,28 @@ services:
     sync: false
   - key: NODE_ENV
     sync: false
+  - key: CLEANUP_API_KEY
+    sync: false
+  - key: NOTIFICATIONS_TTL_DAYS
+    value: "30"
+  - key: AUDIT_LOGS_TTL_DAYS
+    value: "60"
   region: oregon
   buildCommand: npm ci && npm run build
   startCommand: npm start
   autoDeployTrigger: commit
+
+# ── Daily TTL Cleanup Cron ──────────────────────────────────
+# Backup trigger for the built-in node-cron scheduler.
+# Runs daily at midnight to ensure expired notifications and
+# audit logs are purged even if the server was restarting during
+# the node-cron window.
+- type: cron
+  name: ttl-cleanup
+  runtime: node
+  schedule: "0 0 * * *"
+  url: https://tcu-scheduler.onrender.com/api/cleanup
+  headers:
+    - key: Authorization
+      value: Bearer ${CLEANUP_API_KEY}
+  plan: free

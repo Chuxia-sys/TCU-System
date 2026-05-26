@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useConflicts, useRooms, useDetectConflicts, useResolveConflict, useResolveAllConflicts } from '@/hooks/queries';
+import { useQueryClient } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './DataTable';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Conflict, ReassignmentCandidate } from '@/types';
-import { safeJson } from '@/lib/utils';
 import { DAYS, TIME_OPTIONS } from '@/types';
 
 // ── Extended conflict type with schedule details ───────────
@@ -87,23 +87,11 @@ export function ConflictsView() {
   // Expandable rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  const { data: conflicts = [], isLoading: conflictsLoading, mutate: refetchConflicts } = useCachedQuery<ConflictWithDetails[]>(
-    'conflicts:all',
-    async (signal) => {
-      const res = await fetch('/api/conflicts', { signal });
-      const data = await safeJson<{ conflicts?: ConflictWithDetails[] }>(res);
-      return data?.conflicts || [];
-    }
-  );
-
-  const { data: rooms = [], isLoading: roomsLoading } = useCachedQuery<{ id: string; roomName: string; capacity: number; building: string }[]>(
-    'rooms:all',
-    async (signal) => {
-      const res = await fetch('/api/rooms', { signal });
-      const data = await safeJson<{ rooms?: { id: string; roomName: string; capacity: number; building: string }[] }>(res);
-      return data?.rooms || [];
-    }
-  );
+  const { data: conflicts = [], isLoading: conflictsLoading } = useConflicts();
+  const { data: rooms = [], isLoading: roomsLoading } = useRooms();
+  const detectConflicts = useDetectConflicts();
+  const resolveAllMutation = useResolveAllConflicts();
+  const resolveConflict = useResolveConflict();
 
   const loading = conflictsLoading || roomsLoading;
 
@@ -111,39 +99,39 @@ export function ConflictsView() {
   const handleDetect = async () => {
     setDetecting(true);
     try {
-      const res = await fetch('/api/conflicts/detect', { method: 'POST' });
-      const data = await safeJson<{ newCount?: number; existingCount?: number }>(res);
-      if (res.ok) {
-        toast.success(`Detected ${(data?.newCount ?? 0)} new conflicts (${data?.existingCount ?? 0} already known)`);
-        refetchConflicts();
-      } else {
-        toast.error('Conflict detection failed');
-      }
-    } catch {
-      toast.error('Conflict detection failed');
+      const result = await detectConflicts.mutateAsync();
+      const data = result as any;
+      toast.success(`Detected ${data?.newCount ?? 0} new conflicts (${data?.existingCount ?? 0} already known)`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Conflict detection failed');
     } finally {
       setDetecting(false);
     }
   };
+
+  const queryClient = useQueryClient();
 
   // ── Auto-Resolve Single Conflict ──
   const handleAutoResolve = async () => {
     if (!selectedConflict) return;
     setResolving(true);
     try {
-      const res = await fetch(`/api/conflicts/${selectedConflict.id}/resolve`, { method: 'POST' });
-      const data = await safeJson<{ success?: boolean; message?: string; strategy?: string }>(res);
-      if (res.ok && data?.success) {
-        toast.success(`Auto-resolved: ${data.message}`);
+      const result = await resolveConflict.mutateAsync({
+        id: selectedConflict.id,
+        strategy: 'auto',
+      });
+      if (result?.success) {
+        toast.success(`Auto-resolved: ${result.message}`);
       } else {
-        toast[data?.strategy === 'escalated' ? 'warning' : 'error'](
-          data?.message || 'Resolution failed'
+        const res = result as any;
+        toast[res?.strategy === 'escalated' ? 'warning' : 'error'](
+          res?.message || 'Resolution failed'
         );
       }
       setResolveDialogOpen(false);
-      refetchConflicts();
-    } catch {
-      toast.error('Auto-resolution failed');
+      queryClient.invalidateQueries({ queryKey: ['conflicts'] });
+    } catch (err: any) {
+      toast.error(err?.message || 'Auto-resolution failed');
     } finally {
       setResolving(false);
     }
@@ -153,18 +141,14 @@ export function ConflictsView() {
   const handleResolveAll = async () => {
     setResolvingAll(true);
     try {
-      const res = await fetch('/api/conflicts/resolve-all', { method: 'POST' });
-      const data = await safeJson<{ total?: number; resolved?: number; escalated?: number }>(res);
-      if (res.ok) {
-        toast.success(
-          `Batch resolution: ${data?.resolved ?? 0} resolved, ${data?.escalated ?? 0} escalated out of ${data?.total ?? 0}`
-        );
-        refetchConflicts();
-      } else {
-        toast.error('Batch resolution failed');
-      }
-    } catch {
-      toast.error('Batch resolution failed');
+      const result = await resolveAllMutation.mutateAsync();
+      const data = result as any;
+      toast.success(
+        `Batch resolution: ${data?.resolved ?? 0} resolved, ${data?.escalated ?? 0} escalated out of ${data?.total ?? 0}`
+      );
+      queryClient.invalidateQueries({ queryKey: ['conflicts'] });
+    } catch (err: any) {
+      toast.error(err?.message || 'Batch resolution failed');
     } finally {
       setResolvingAll(false);
     }
@@ -218,7 +202,7 @@ export function ConflictsView() {
       if (res.ok && data?.success) {
         toast.success(`Reassigned: ${data.message}`);
         setManualOpen(false);
-        refetchConflicts();
+        queryClient.invalidateQueries({ queryKey: ['conflicts'] });
       } else {
         toast.error(data?.message || 'Manual reassignment failed');
       }
@@ -242,7 +226,7 @@ export function ConflictsView() {
       if (res.ok) {
         toast.success('Conflict marked as resolved');
         setResolveDialogOpen(false);
-        refetchConflicts();
+        queryClient.invalidateQueries({ queryKey: ['conflicts'] });
       } else {
         toast.error('Failed to resolve conflict');
       }
@@ -416,7 +400,7 @@ export function ConflictsView() {
               {resolvingAll ? 'Resolving...' : 'Resolve All'}
             </Button>
           )}
-          <Button onClick={() => refetchConflicts()} variant="outline" size="sm">
+          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['conflicts'] })} variant="outline" size="sm">
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>

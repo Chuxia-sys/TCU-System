@@ -233,7 +233,7 @@ export async function validateFirestoreConnection(): Promise<{
   try {
     // Create AbortController for timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_CONFIG.TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(new DOMException('Connection validation timed out', 'TimeoutError')), REQUEST_CONFIG.TIMEOUT_MS);
 
     try {
       // Try a lightweight read to verify Firestore access using API key
@@ -304,7 +304,7 @@ async function firestoreRequest(path: string, method: string = 'GET', body?: any
 
   // Create AbortController for timeout
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_CONFIG.TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), REQUEST_CONFIG.TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {
@@ -1144,11 +1144,13 @@ function createModel(name: string, uniqueFields: string[], relations: ModelRelat
 
     deleteMany: async (args?: {
       where?: Record<string, any>;
+      limit?: number;
     }): Promise<{ count: number }> => {
       const filters = buildFilters(args?.where);
+      const maxDocs = args?.limit ?? 10000;
 
       try {
-        const results = await runQuery(name, filters.length > 0 ? filters : undefined, undefined, 10000);
+        const results = await runQuery(name, filters.length > 0 ? filters : undefined, undefined, maxDocs);
         if (results.length === 0) return { count: 0 };
 
         for (const doc of results) {

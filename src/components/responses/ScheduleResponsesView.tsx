@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useScheduleResponses } from '@/hooks/queries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { formatTime12Hour, formatTimeRange, safeJson } from '@/lib/utils';
+import { formatTime12Hour, formatTimeRange } from '@/lib/utils';
 import { DAYS } from '@/types';
 
 type ScheduleResponse = {
@@ -78,14 +78,7 @@ type ScheduleResponse = {
 };
 
 export function ScheduleResponsesView() {
-  const { data: responses = [], isLoading: loading } = useCachedQuery<ScheduleResponse[]>(
-    'schedule-responses:all',
-    async (signal) => {
-      const res = await fetch('/api/schedule-responses', { signal });
-      const data = await safeJson<ScheduleResponse[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
+  const { data: responses = [], isLoading: loading } = useScheduleResponses();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');

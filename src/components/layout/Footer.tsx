@@ -13,7 +13,7 @@ export function Footer() {
       
       <div className="container mx-auto px-4 lg:px-6">
         {/* Main Footer Content */}
-        <div className="flex flex-col md:flex-row items-center justify-between py-5 gap-4">
+        <div className="flex flex-col md:flex-row items-center justify-between py-2 gap-2">
           {/* Brand */}
           <div className="flex items-center gap-3">
             <div className="relative">

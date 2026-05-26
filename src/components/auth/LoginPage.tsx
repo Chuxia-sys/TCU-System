@@ -181,7 +181,7 @@ export function LoginPage() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-dvh flex flex-col">
       <div className="flex-1 flex">
         {/* Left Side - Branding */}
         <div className="hidden lg:flex lg:w-1/2 bg-[#8B0000] relative overflow-hidden">
@@ -243,16 +243,25 @@ export function LoginPage() {
         </div>
 
         {/* Right Side - Login/Register Form */}
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-background relative overflow-hidden" style={{ backgroundImage: "url('/login-right-bg.png')", backgroundPosition: 'right center', backgroundRepeat: 'no-repeat', backgroundSize: 'contain', backgroundAttachment: 'fixed' }}>
-          <div className="absolute inset-0 pointer-events-none" style={{ backdropFilter: 'blur(20px) brightness(0.9)' }} />
+        <div
+          className="flex-1 flex items-center justify-center p-2 sm:p-4 md:p-6 relative overflow-y-auto"
+          style={{
+            backgroundImage: "url('/login-right-bg.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        >
+          {/* Solid overlay keeps the form readable without blurring */}
+          <div className="absolute inset-0 bg-background/85 sm:bg-background/75 lg:bg-background/65" />
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="w-full max-w-md relative z-10"
+            className="relative z-10 w-full max-w-md py-2 sm:py-4"
           >
             {/* Mobile Logo */}
-            <div className="lg:hidden flex items-center justify-center mb-8">
+            <div className="lg:hidden flex items-center justify-center mb-3 sm:mb-5">
               <div className="flex items-center gap-3">
                 <Image 
                   src="/tcu-logo.png" 
@@ -268,14 +277,14 @@ export function LoginPage() {
               </div>
             </div>
 
-            <Card className="border-0 rounded-2xl shadow-2xl">
-              <CardHeader className="space-y-1 pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-2xl font-bold">
+            <Card className="border-0 rounded-xl sm:rounded-2xl shadow-lg sm:shadow-2xl">
+              <CardHeader className="space-y-1 px-4 sm:px-6 pt-3 sm:pt-4 pb-2 sm:pb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <CardTitle className="text-xl sm:text-2xl font-bold">
                       {mode === 'login' ? 'Welcome back' : 'Create account'}
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-sm sm:text-base">
                       {mode === 'login' 
                         ? 'Sign in to your account to continue' 
                         : 'Register as a faculty member'}
@@ -285,7 +294,7 @@ export function LoginPage() {
                     variant="ghost"
                     size="sm"
                     onClick={switchMode}
-                    className="text-primary"
+                    className="shrink-0 text-primary"
                   >
                     {mode === 'login' ? (
                       <>
@@ -301,18 +310,18 @@ export function LoginPage() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 sm:px-6 pb-3 sm:pb-4">
                 <AnimatePresence mode="wait">
                   {success && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="mb-4"
+                      className="mb-2 sm:mb-3"
                     >
-                      <Alert className="border-primary/50 bg-primary/10">
+                      <Alert className="border-primary/50 bg-primary/10 py-1.5 sm:py-2">
                         <CheckCircle className="h-4 w-4 text-primary" />
-                        <AlertDescription className="text-primary dark:text-primary">
+                        <AlertDescription className="text-xs sm:text-sm text-primary dark:text-primary">
                           {success}
                         </AlertDescription>
                       </Alert>
@@ -326,10 +335,10 @@ export function LoginPage() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 20 }}
                       onSubmit={handleLogin}
-                      className="space-y-4"
+                      className="space-y-2 sm:space-y-3"
                     >
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
+                      <div className="space-y-1 sm:space-y-1.5">
+                        <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
                         <Input
                           id="email"
                           type="email"
@@ -337,11 +346,11 @@ export function LoginPage() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           required
-                          className="h-11 transition-all duration-200"
+                          className="h-9 sm:h-10 transition-all duration-200 text-sm sm:text-base"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
+                      <div className="space-y-1 sm:space-y-1.5">
+                        <Label htmlFor="password" className="text-sm sm:text-base">Password</Label>
                         <Input
                           id="password"
                           type="password"
@@ -349,18 +358,18 @@ export function LoginPage() {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required
-                          className="h-11 transition-all duration-200"
+                          className="h-9 sm:h-10 transition-all duration-200 text-sm sm:text-base"
                         />
                       </div>
 
                       {error && (
-                        <Alert variant="destructive">
+                        <Alert variant="destructive" className="py-1.5 sm:py-2">
                           <AlertTriangle className="h-4 w-4" />
-                          <AlertDescription>{error}</AlertDescription>
+                          <AlertDescription className="text-xs sm:text-sm">{error}</AlertDescription>
                         </Alert>
                       )}
 
-                      <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl btn-lift" disabled={loading}>
+                      <Button type="submit" className="w-full h-9 sm:h-10 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl btn-lift text-sm sm:text-base" disabled={loading}>
                         {loading ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -373,17 +382,17 @@ export function LoginPage() {
 
                       {/* Seed Button (only show if needs seeding) */}
                       {seedStatus === 'needs-seed' && (
-                        <div className="pt-4 border-t">
-                          <Alert className="border-amber-500/50 bg-amber-500/10 mb-3">
+                        <div className="pt-2 sm:pt-3 border-t mt-2 sm:mt-3">
+                          <Alert className="border-amber-500/50 bg-amber-500/10 mb-1.5 sm:mb-2 py-1.5 sm:py-2">
                             <Database className="h-4 w-4 text-amber-500" />
-                            <AlertDescription className="text-amber-700 dark:text-amber-400">
+                            <AlertDescription className="text-xs sm:text-sm text-amber-700 dark:text-amber-400">
                               Database needs to be seeded with demo data.
                             </AlertDescription>
                           </Alert>
                           <Button
                             type="button"
                             variant="outline"
-                            className="w-full"
+                            className="w-full h-9 sm:h-10 text-sm sm:text-base"
                             onClick={handleSeed}
                             disabled={seedLoading}
                           >
@@ -403,47 +412,47 @@ export function LoginPage() {
                       )}
 
                       {/* Demo Credentials */}
-                      <div className="pt-4 border-t">
-                        <p className="text-sm text-muted-foreground text-center mb-3">Demo Credentials:</p>
-                        <div className="space-y-2">
+                      <div className="pt-2 sm:pt-3 border-t mt-3 sm:mt-4">
+                        <p className="text-xs sm:text-sm text-muted-foreground text-center mb-1 sm:mb-2">Demo Credentials:</p>
+                        <div className="space-y-1 sm:space-y-1.5">
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="w-full justify-start text-xs"
+                            className="w-full justify-start text-xs sm:text-sm min-h-8 sm:min-h-9 px-3"
                             onClick={() => {
                               setEmail('admin@tcu.edu.ph');
                               setPassword('password123');
                             }}
                           >
-                            <span className="font-medium mr-2">Admin:</span>
-                            admin@tcu.edu.ph
+                            <span className="font-semibold mr-1.5 shrink-0">Admin:</span>
+                            <span className="truncate">admin@tcu.edu.ph</span>
                           </Button>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="w-full justify-start text-xs"
+                            className="w-full justify-start text-xs sm:text-sm min-h-8 sm:min-h-9 px-3"
                             onClick={() => {
                               setEmail('head.cs@tcu.edu.ph');
                               setPassword('password123');
                             }}
                           >
-                            <span className="font-medium mr-2">Dept Head:</span>
-                            head.cs@tcu.edu.ph
+                            <span className="font-semibold mr-1.5 shrink-0">Dept Head:</span>
+                            <span className="truncate">head.cs@tcu.edu.ph</span>
                           </Button>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="w-full justify-start text-xs"
+                            className="w-full justify-start text-xs sm:text-sm min-h-8 sm:min-h-9 px-3"
                             onClick={() => {
                               setEmail('faculty1@tcu.edu.ph');
                               setPassword('password123');
                             }}
                           >
-                            <span className="font-medium mr-2">Faculty:</span>
-                            faculty1@tcu.edu.ph
+                            <span className="font-semibold mr-1.5 shrink-0">Faculty:</span>
+                            <span className="truncate">faculty1@tcu.edu.ph</span>
                           </Button>
                         </div>
                       </div>
@@ -455,10 +464,10 @@ export function LoginPage() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       onSubmit={handleRegister}
-                      className="space-y-4"
+                      className="space-y-2 sm:space-y-3"
                     >
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Full Name</Label>
+                      <div className="space-y-1 sm:space-y-1.5">
+                        <Label htmlFor="name" className="text-sm sm:text-base">Full Name</Label>
                         <Input
                           id="name"
                           type="text"
@@ -466,12 +475,12 @@ export function LoginPage() {
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           required
-                          className="h-11 transition-all duration-200"
+                          className="h-9 sm:h-10 transition-all duration-200 text-sm sm:text-base"
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="register-email">Email</Label>
+                      <div className="space-y-1 sm:space-y-1.5">
+                        <Label htmlFor="register-email" className="text-sm sm:text-base">Email</Label>
                         <Input
                           id="register-email"
                           type="email"
@@ -479,14 +488,14 @@ export function LoginPage() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           required
-                          className="h-11 transition-all duration-200"
+                          className="h-9 sm:h-10 transition-all duration-200 text-sm sm:text-base"
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="department">Department (Optional)</Label>
+                      <div className="space-y-1 sm:space-y-1.5">
+                        <Label htmlFor="department" className="text-sm sm:text-base">Department (Optional)</Label>
                         <Select value={departmentId} onValueChange={setDepartmentId}>
-                          <SelectTrigger className="h-11">
+                          <SelectTrigger className="h-9 sm:h-10 text-sm sm:text-base">
                             <SelectValue placeholder="Select your department" />
                           </SelectTrigger>
                           <SelectContent>
@@ -499,20 +508,20 @@ export function LoginPage() {
                         </Select>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number (Optional)</Label>
+                      <div className="space-y-1 sm:space-y-1.5">
+                        <Label htmlFor="phone" className="text-sm sm:text-base">Phone Number (Optional)</Label>
                         <Input
                           id="phone"
                           type="tel"
                           placeholder="Enter your phone number"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
-                          className="h-11 transition-all duration-200"
+                          className="h-9 sm:h-10 transition-all duration-200 text-sm sm:text-base"
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="register-password">Password</Label>
+                      <div className="space-y-1 sm:space-y-1.5">
+                        <Label htmlFor="register-password" className="text-sm sm:text-base">Password</Label>
                         <Input
                           id="register-password"
                           type="password"
@@ -520,12 +529,12 @@ export function LoginPage() {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required
-                          className="h-11 transition-all duration-200"
+                          className="h-9 sm:h-10 transition-all duration-200 text-sm sm:text-base"
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="confirm-password">Confirm Password</Label>
+                      <div className="space-y-1 sm:space-y-1.5">
+                        <Label htmlFor="confirm-password" className="text-sm sm:text-base">Confirm Password</Label>
                         <Input
                           id="confirm-password"
                           type="password"
@@ -533,18 +542,18 @@ export function LoginPage() {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           required
-                          className="h-11 transition-all duration-200"
+                          className="h-9 sm:h-10 transition-all duration-200 text-sm sm:text-base"
                         />
                       </div>
 
                       {error && (
-                        <Alert variant="destructive">
+                        <Alert variant="destructive" className="py-1.5 sm:py-2">
                           <AlertTriangle className="h-4 w-4" />
-                          <AlertDescription>{error}</AlertDescription>
+                          <AlertDescription className="text-xs sm:text-sm">{error}</AlertDescription>
                         </Alert>
                       )}
 
-                      <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl btn-lift" disabled={loading}>
+                      <Button type="submit" className="w-full h-9 sm:h-10 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl btn-lift text-sm sm:text-base" disabled={loading}>
                         {loading ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -558,7 +567,7 @@ export function LoginPage() {
                         )}
                       </Button>
 
-                      <p className="text-xs text-muted-foreground text-center">
+                      <p className="text-xs sm:text-sm text-muted-foreground text-center">
                         By creating an account, you will be registered as a faculty member.
                       </p>
                     </motion.form>

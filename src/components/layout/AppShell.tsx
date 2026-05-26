@@ -44,7 +44,7 @@ export function AppShell({ children }: AppShellProps) {
         {/* ===== MAIN CONTENT: Only this section scrolls ===== */}
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* Content area — this is the ONLY scrollable container */}
-          <div className="flex-1 overflow-y-auto pb-24 md:pb-8">
+          <div className="flex-1 overflow-y-auto pb-28 md:pb-8 safe-area-bottom">
             {/* Actual page content */}
             <div className="p-4 sm:p-5 lg:p-8">
               {children}

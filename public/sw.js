@@ -1,7 +1,7 @@
 // TCU Scheduling System - Service Worker
 // Provides offline support and intelligent caching strategies
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAMES = {
   // Static assets cache - long-lived (1 week)
   STATIC: `static-${CACHE_VERSION}`,

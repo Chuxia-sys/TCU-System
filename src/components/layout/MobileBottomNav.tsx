@@ -160,11 +160,11 @@ function MoreNavItems({
           </span>
         </button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-auto rounded-t-2xl dark:bg-[#1E293B] dark:border-[#334155]">
-        <SheetHeader className="pb-4">
+      <SheetContent side="bottom" className="h-auto max-h-[80vh] rounded-t-2xl dark:bg-[#1E293B] dark:border-[#334155] safe-area-bottom">
+        <SheetHeader className="pb-3">
           <SheetTitle className="text-center dark:text-[#F8FAFC]">More Options</SheetTitle>
         </SheetHeader>
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 pb-6">
+        <div className="grid grid-cols-4 sm:grid-cols-4 gap-3 pb-6">
           {items.map((item) => {
             const isActive = currentView === item.id;
             const Icon = item.icon;

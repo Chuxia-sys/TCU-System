@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useUsers, useDepartments, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/queries';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './DataTable';
 import { Button } from '@/components/ui/button';
@@ -40,26 +40,13 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { User, Department } from '@/types';
-import { safeJson } from '@/lib/utils';
 
 export function UsersView() {
-  const { data: users = [], isLoading: usersLoading, mutate: refetchUsers } = useCachedQuery<User[]>(
-    'users:all',
-    async (signal) => {
-      const res = await fetch('/api/users', { signal });
-      const data = await safeJson<User[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: departments = [], isLoading: deptsLoading, mutate: refetchDepartments } = useCachedQuery<Department[]>(
-    'departments:all',
-    async (signal) => {
-      const res = await fetch('/api/departments', { signal });
-      const data = await safeJson<Department[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
+  const { data: users = [], isLoading: usersLoading } = useUsers();
+  const { data: departments = [], isLoading: deptsLoading } = useDepartments();
+  const createUser = useCreateUser();
+  const updateUser = useUpdateUser();
+  const deleteUser = useDeleteUser();
 
   const loading = usersLoading || deptsLoading;
 
@@ -122,24 +109,17 @@ export function UsersView() {
     if (!validateForm()) return;
     setSaving(true);
     try {
-      const url = selectedUser ? `/api/users/${selectedUser.id}` : '/api/users';
-      const method = selectedUser ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      const data = await safeJson<{ error?: string; id?: string } & Record<string, unknown>>(res);
-      if (res.ok && data && !('error' in data)) {
-        toast.success(selectedUser ? 'User updated' : 'User created');
-        setDialogOpen(false);
-        refetchUsers();
+      if (selectedUser) {
+        await updateUser.mutateAsync({ id: selectedUser.id, ...formData } as any);
+        toast.success('User updated');
       } else {
-        toast.error((data as any)?.error || 'Operation failed');
+        await createUser.mutateAsync(formData as any);
+        toast.success('User created');
       }
-    } catch (error) {
-      console.error('Submit error:', error);
-      toast.error('Operation failed');
+      setDialogOpen(false);
+    } catch (err: any) {
+      console.error('Submit error:', err);
+      toast.error(err?.message || 'Operation failed');
     } finally {
       setSaving(false);
     }
@@ -149,19 +129,13 @@ export function UsersView() {
     if (!selectedUser) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/users/${selectedUser.id}`, { method: 'DELETE' });
-      const data = await safeJson<{ success?: boolean; error?: string; message?: string }>(res);
-      if (res.ok && data?.success) {
-        toast.success(data.message || 'User deleted successfully');
-        setDeleteDialogOpen(false);
-        setSelectedUser(null);
-        refetchUsers();
-      } else {
-        toast.error(data?.error || 'Failed to delete user');
-      }
-    } catch (error) {
-      console.error('Delete error:', error);
-      toast.error('Failed to delete user. Network error.');
+      await deleteUser.mutateAsync(selectedUser.id);
+      toast.success('User deleted successfully');
+      setDeleteDialogOpen(false);
+      setSelectedUser(null);
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      toast.error(err?.message || 'Failed to delete user');
     } finally {
       setDeleting(false);
     }

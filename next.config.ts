@@ -27,6 +27,57 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [
     '.space-z.ai',
   ],
+
+  // ============================================================
+  // Cache & Performance Headers
+  // ============================================================
+  async headers() {
+    return [
+      // Static assets: immutable cache for 1 year (hashed filenames)
+      {
+        source: '/:path*\\.(jpg|jpeg|gif|png|ico|webp|svg|woff2?|ttf|otf|css|js|json)$',
+        locale: false,
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      // Static public assets (non-hashed)
+      {
+        source: '/static/(.*)',
+        locale: false,
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        ],
+      },
+      // API routes: no caching (dynamic data)
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate',
+          },
+        ],
+      },
+      // Page routes: use stale-while-revalidate for faster re-navigation
+      {
+        source: '/((?:api|_next/static|static|favicon.ico)\\b.*)',
+        locale: false,
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

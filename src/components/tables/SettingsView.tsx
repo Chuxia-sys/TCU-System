@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useApiQuery } from '@/hooks/queries';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -76,20 +76,14 @@ export function SettingsView() {
     maintenance_mode: false,
   });
 
-  const { data: settingsData, isLoading: settingsLoading, mutate: refetchSettings } = useCachedQuery<Partial<SystemSettings>>(
-    'settings:system',
-    async (signal) => {
-      const res = await fetch('/api/settings', { signal });
-      return safeJson<Partial<SystemSettings>>(res);
-    }
+  const { data: settingsData, isLoading: settingsLoading, refetch: refetchSettings } = useApiQuery<Partial<SystemSettings>>(
+    ['settings', 'system'],
+    '/api/settings',
   );
 
-  const { data: seedData, isLoading: seedLoading, mutate: refetchSeedStatus } = useCachedQuery<{ seeded?: boolean }>(
-    'seed:status',
-    async (signal) => {
-      const res = await fetch('/api/seed', { signal });
-      return safeJson<{ seeded?: boolean }>(res);
-    }
+  const { data: seedData, isLoading: seedLoading, refetch: refetchSeedStatus } = useApiQuery<{ seeded?: boolean }>(
+    ['seed', 'status'],
+    '/api/seed',
   );
 
   const seededStatus = seedData?.seeded ?? null;

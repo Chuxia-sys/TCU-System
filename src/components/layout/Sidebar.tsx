@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { prefetch } from '@/hooks/queries';
 import {
   LayoutDashboard,
   Calendar,
@@ -72,17 +73,20 @@ function NavButton({
   isActive,
   collapsed,
   onClick,
+  onHover,
 }: {
   item: NavItem;
   isActive: boolean;
   collapsed: boolean;
   onClick: () => void;
+  onHover?: () => void;
 }) {
   const Icon = item.icon;
 
   const btn = (
     <button
       onClick={onClick}
+      onMouseEnter={onHover}
       aria-label={item.label}
       className={cn(
         'flex w-full items-center rounded-xl text-sm font-medium transition-all duration-200 ease-out group',
@@ -91,16 +95,16 @@ function NavButton({
         // Collapsed layout
         collapsed && 'justify-center p-2.5 mx-auto w-10 h-10',
         // Active state — red translucent bg + red left border
-        isActive && !collapsed && 'bg-red-50 dark:bg-red-500/[0.12] text-red-700 dark:text-[#F8FAFC] border-l-2 border-red-600 dark:border-[#EF4444] pl-[calc(0.875rem-2px)]',
+        isActive && !collapsed && 'bg-red-50 dark:bg-red-500/12 text-red-700 dark:text-[#F8FAFC] border-l-2 border-red-600 dark:border-[#EF4444] pl-3',
         // Active collapsed — solid red bg
         isActive && collapsed && 'bg-red-600 dark:bg-[#EF4444] text-white shadow-lg shadow-red-500/25 dark:shadow-[#EF4444]/25',
         // Inactive state
-        !isActive && !collapsed && 'text-gray-600 dark:text-[#94A3B8] border-l-2 border-transparent hover:bg-gray-100 dark:hover:bg-white/[0.06] hover:text-gray-900 dark:hover:text-[#F8FAFC] hover:translate-x-0.5',
-        !isActive && collapsed && 'text-gray-600 dark:text-[#94A3B8] hover:bg-gray-100 dark:hover:bg-white/[0.06] hover:text-gray-900 dark:hover:text-[#F8FAFC]',
+        !isActive && !collapsed && 'text-gray-600 dark:text-[#94A3B8] border-l-2 border-transparent hover:bg-gray-100 dark:hover:bg-white/6 hover:text-gray-900 dark:hover:text-[#F8FAFC] hover:translate-x-0.5',
+        !isActive && collapsed && 'text-gray-600 dark:text-[#94A3B8] hover:bg-gray-100 dark:hover:bg-white/6 hover:text-gray-900 dark:hover:text-[#F8FAFC]',
       )}
     >
       <Icon className={cn(
-        'shrink-0 transition-colors duration-200 h-[18px] w-[18px]',
+        'shrink-0 transition-colors duration-200 h-4.5 w-4.5',
         // Active + collapsed: white icon on red bg
         isActive && collapsed ? 'text-white' : '',
         // Active + expanded: red accent icon
@@ -126,7 +130,7 @@ function NavButton({
         <TooltipTrigger asChild>
           <div className="relative">{btn}</div>
         </TooltipTrigger>
-        <TooltipContent side="right" className="font-medium dark:bg-[#1E293B] dark:border-[#334155]" sideOffset={8}>
+        <TooltipContent side="right" className="font-medium dark:bg-[#1E293B] dark:border-[#334155] dark:text-[#F8FAFC]" sideOffset={8}>
           {item.label}
           {item.badge && (
             <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 dark:bg-[#EF4444] px-1 text-[10px] text-white font-semibold">
@@ -153,12 +157,47 @@ export function Sidebar() {
     setViewMode(id);
   };
 
+  // ── Route-based data prefetching ──
+  // Preloads data when user hovers over nav items for instant page loads.
+  const handleNavHover = (id: ViewMode) => {
+    const deptId = session?.user?.departmentId;
+    switch (id) {
+      case 'schedules':
+        prefetch.schedules(deptId);
+        break;
+      case 'rooms':
+        prefetch.rooms();
+        break;
+      case 'subjects':
+        prefetch.subjects(deptId);
+        break;
+      case 'faculty':
+        prefetch.faculty(deptId);
+        break;
+      case 'departments':
+        prefetch.departments();
+        break;
+      case 'sections':
+        prefetch.sections(deptId);
+        break;
+      case 'users':
+        prefetch.users();
+        break;
+      case 'conflicts':
+        prefetch.conflicts();
+        break;
+      case 'dashboard':
+        prefetch.dashboard(deptId);
+        break;
+    }
+  };
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          'hidden md:flex flex-col shrink-0 transition-all duration-300 ease-in-out',
-          sidebarCollapsed ? 'w-[68px]' : 'w-[260px]'
+          'hidden md:flex flex-col shrink-0 transition-all duration-300 ease-in-out relative z-0',
+          sidebarCollapsed ? 'w-17' : 'w-65'
         )}
       >
         {/* ── Scrollable Navigation Area ── */}
@@ -180,6 +219,7 @@ export function Sidebar() {
                   isActive={viewMode === item.id}
                   collapsed={sidebarCollapsed}
                   onClick={() => handleNavClick(item.id)}
+                  onHover={() => handleNavHover(item.id)}
                 />
               ))}
             </nav>
@@ -207,6 +247,7 @@ export function Sidebar() {
                       isActive={viewMode === item.id}
                       collapsed={sidebarCollapsed}
                       onClick={() => handleNavClick(item.id)}
+                      onHover={() => handleNavHover(item.id)}
                     />
                   ))}
                 </nav>

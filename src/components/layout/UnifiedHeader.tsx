@@ -162,19 +162,19 @@ export function UnifiedHeader() {
   };
 
   return (
-    <header className="shrink-0 flex h-[72px] border-b border-border/5 bg-[#8b0000] dark:header-gradient z-40">
+    <header className="shrink-0 flex h-[72px] border-b border-border/5 bg-[#8b0000] dark:header-gradient z-50">
       {/* ===== LEFT SECTION: SIDEBAR HEADER ===== */}
       <div
         className={cn(
           'hidden md:flex items-center shrink-0 transition-all duration-300 ease-in-out gap-2 px-4',
-          'bg-[#8b0000] dark:header-gradient border-r border-white/10',
-          sidebarCollapsed ? 'w-[68px] justify-center' : 'w-[260px]'
+          'bg-[#8b0000] dark:header-gradient',
+          sidebarCollapsed ? 'w-17 justify-center' : 'w-65'
         )}
       >
         {/* Expanded logo + text */}
         {!sidebarCollapsed && (
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="bg-white rounded-lg p-1 shrink-0">
+            <div className="bg-white rounded-lg p-1 shrink-0 ml-[15px]">
               <Image src="/tcu-logo.png" alt="TCU Logo" width={32} height={32} className="object-contain" />
             </div>
             <div className="flex flex-col min-w-0">
@@ -186,7 +186,7 @@ export function UnifiedHeader() {
 
         {/* Collapsed: centered logo */}
         {sidebarCollapsed && (
-          <div className="bg-white rounded-lg p-1 shrink-0">
+          <div className="bg-white rounded-lg p-1 shrink-0 ml-7.5">
             <Image src="/tcu-logo.png" alt="TCU Logo" width={24} height={24} className="object-contain" />
           </div>
         )}
@@ -197,7 +197,7 @@ export function UnifiedHeader() {
           size="icon"
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           className={cn(
-            'text-white/60 hover:text-white hover:bg-white/10 dark:hover:bg-white/[0.06] rounded-lg transition-all duration-200 shrink-0',
+            'text-white/60 hover:text-white hover:bg-white/10 dark:hover:bg-white/6 rounded-lg transition-all duration-200 shrink-0 relative z-60',
             sidebarCollapsed ? 'h-7 w-7' : 'h-8 w-8'
           )}
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -208,7 +208,7 @@ export function UnifiedHeader() {
 
       {/* Mobile: Logo backdrop (visible only on mobile) */}
       <div className="flex md:hidden items-center gap-2.5 shrink-0 px-4 bg-[#8b0000] dark:header-gradient">
-        <div className="bg-white rounded-lg p-1 shrink-0">
+        <div className="bg-white rounded-lg p-1 shrink-0 ml-7.5">
           <Image
             src="/tcu-logo.png"
             alt="TCU Logo"

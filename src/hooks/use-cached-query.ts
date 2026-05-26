@@ -92,7 +92,7 @@ export function useCachedQuery<T = any>(
 
   const execute = useCallback(async (k: string, force = false) => {
     if (abortRef.current && !abortRef.current.signal.aborted) {
-      try { abortRef.current.abort(); } catch { /* AbortError guard */ }
+      try { abortRef.current.abort(new DOMException('Query cancelled', 'AbortError')); } catch { /* AbortError guard */ }
     }
     const controller = new AbortController();
     abortRef.current = controller;
@@ -165,7 +165,7 @@ export function useCachedQuery<T = any>(
       cancelledRef.current = true;
       // Abort any in-flight request (errors are caught by the fetch .catch handler)
       if (abortRef.current && !abortRef.current.signal.aborted) {
-        try { abortRef.current.abort(); } catch { /* AbortError guard - some polyfills throw */ }
+        try { abortRef.current.abort(new DOMException('Component unmounted', 'AbortError')); } catch { /* AbortError guard - some polyfills throw */ }
       }
     };
   }, [key, enabled, execute]);

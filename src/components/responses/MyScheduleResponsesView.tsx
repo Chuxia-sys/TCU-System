@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { usePendingSchedules, useMyResponses, useSubmitScheduleResponse } from '@/hooks/queries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -80,52 +80,25 @@ export function MyScheduleResponsesView() {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'responded'>('pending');
 
-  const { data: pendingSchedules = [], isLoading: pendingLoading, mutate: refetchPending } = useCachedQuery<Schedule[]>(
-    'schedule-responses:pending',
-    async (signal) => {
-      const res = await fetch('/api/schedule-responses/pending', { signal });
-      const data = await safeJson<Schedule[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: myResponses = [], isLoading: responsesLoading, mutate: refetchResponses } = useCachedQuery<ScheduleResponse[]>(
-    'schedule-responses:mine',
-    async (signal) => {
-      const res = await fetch('/api/schedule-responses', { signal });
-      const data = await safeJson<ScheduleResponse[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
+  const { data: pendingSchedules = [], isLoading: pendingLoading, refetch: refetchPending } = usePendingSchedules();
+  const { data: myResponses = [], isLoading: responsesLoading, refetch: refetchResponses } = useMyResponses();
+  const submitResponse = useSubmitScheduleResponse();
 
   const loading = pendingLoading || responsesLoading;
 
   const handleAccept = async (scheduleId: string) => {
-    try {
-      setSubmitting(true);
-      const res = await fetch('/api/schedule-responses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scheduleId,
-          status: 'accepted',
-        }),
-      });
-
-      const data = await safeJson<{ error?: string }>(res);
-      if (data) {
-        toast.success('Schedule accepted successfully!');
-        refetchPending();
-        refetchResponses();
-      } else {
-        toast.error('Failed to accept schedule');
+    submitResponse.mutate(
+      { scheduleId, status: 'accepted' },
+      {
+        onSuccess: () => {
+          toast.success('Schedule accepted successfully!');
+        },
+        onError: (error) => {
+          console.error('Error accepting schedule:', error);
+          toast.error('Failed to accept schedule');
+        },
       }
-    } catch (error) {
-      console.error('Error accepting schedule:', error);
-      toast.error('Failed to accept schedule');
-    } finally {
-      setSubmitting(false);
-    }
+    );
   };
 
   const handleReject = async () => {
@@ -136,35 +109,21 @@ export function MyScheduleResponsesView() {
       return;
     }
 
-    try {
-      setSubmitting(true);
-      const res = await fetch('/api/schedule-responses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scheduleId: selectedSchedule.id,
-          status: 'rejected',
-          reason: rejectionReason.trim(),
-        }),
-      });
-
-      const data = await safeJson<{ error?: string }>(res);
-      if (data) {
-        toast.success('Schedule rejected. The admin will be notified.');
-        setShowRejectDialog(false);
-        setSelectedSchedule(null);
-        setRejectionReason('');
-        refetchPending();
-        refetchResponses();
-      } else {
-        toast.error('Failed to reject schedule');
+    submitResponse.mutate(
+      { scheduleId: selectedSchedule.id, status: 'rejected', reason: rejectionReason.trim() },
+      {
+        onSuccess: () => {
+          toast.success('Schedule rejected. The admin will be notified.');
+          setShowRejectDialog(false);
+          setSelectedSchedule(null);
+          setRejectionReason('');
+        },
+        onError: (error) => {
+          console.error('Error rejecting schedule:', error);
+          toast.error('Failed to reject schedule');
+        },
       }
-    } catch (error) {
-      console.error('Error rejecting schedule:', error);
-      toast.error('Failed to reject schedule');
-    } finally {
-      setSubmitting(false);
-    }
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -195,7 +154,7 @@ export function MyScheduleResponsesView() {
             Review and respond to your schedule assignments
           </p>
         </div>
-        <Button variant="outline" onClick={fetchData} disabled={loading}>
+        <Button variant="outline" onClick={() => { refetchPending(); refetchResponses(); }} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>

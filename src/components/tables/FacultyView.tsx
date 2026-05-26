@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useFaculty, useDepartments, useSchedules, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/queries';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store';
 import { ColumnDef } from '@tanstack/react-table';
@@ -54,10 +54,11 @@ import {
   BookOpen,
   X,
   Layers,
+  Loader2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 import type { User, Department, Schedule } from '@/types';
-import { safeJson } from '@/lib/utils';
 
 export function FacultyView() {
   const { data: session } = useSession();
@@ -65,39 +66,13 @@ export function FacultyView() {
 
   const isDeptHead = session?.user?.role === 'department_head';
   const deptHeadDepartmentId = isDeptHead ? session?.user?.departmentId : null;
-  const facultyKey = isDeptHead && deptHeadDepartmentId
-    ? `faculty:dept:${deptHeadDepartmentId}`
-    : 'faculty:all';
-  const facultyUrl = isDeptHead && deptHeadDepartmentId
-    ? `/api/users?role=faculty&departmentId=${deptHeadDepartmentId}`
-    : '/api/users?role=faculty';
 
-  const { data: faculty = [], isLoading: facultyLoading, mutate: refetchFaculty } = useCachedQuery<User[]>(
-    facultyKey,
-    async (signal) => {
-      const res = await fetch(facultyUrl, { signal });
-      const data = await safeJson<User[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: departments = [], isLoading: deptsLoading, mutate: refetchDepartments } = useCachedQuery<Department[]>(
-    'departments:all',
-    async (signal) => {
-      const res = await fetch('/api/departments', { signal });
-      const data = await safeJson<Department[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: schedules = [], isLoading: schedulesLoading, mutate: refetchSchedules } = useCachedQuery<Schedule[]>(
-    'schedules:all',
-    async (signal) => {
-      const res = await fetch('/api/schedules', { signal });
-      const data = await safeJson<Schedule[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
+  const { data: faculty = [], isLoading: facultyLoading } = useFaculty(deptHeadDepartmentId);
+  const { data: departments = [], isLoading: deptsLoading } = useDepartments();
+  const { data: schedules = [], isLoading: schedulesLoading } = useSchedules();
+  const createUser = useCreateUser();
+  const updateUser = useUpdateUser();
+  const deleteUser = useDeleteUser();
 
   const loading = facultyLoading || deptsLoading || schedulesLoading;
 
@@ -203,25 +178,16 @@ export function FacultyView() {
     
     setSaving(true);
     try {
-      const url = selectedFaculty ? `/api/users/${selectedFaculty.id}` : '/api/users';
-      const method = selectedFaculty ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await safeJson<{ error?: string; id?: string } & Record<string, unknown>>(res);
-      if (data && !('error' in data)) {
-        toast.success(selectedFaculty ? 'Faculty updated successfully' : 'Faculty created successfully');
-        setDialogOpen(false);
-        refetchFaculty();
+      if (selectedFaculty) {
+        await updateUser.mutateAsync({ id: selectedFaculty.id, ...formData } as any);
+        toast.success('Faculty updated successfully');
       } else {
-        toast.error('Operation failed');
+        await createUser.mutateAsync(formData as any);
+        toast.success('Faculty created successfully');
       }
-    } catch {
-      toast.error('Operation failed');
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Operation failed');
     } finally {
       setSaving(false);
     }
@@ -236,17 +202,10 @@ export function FacultyView() {
     if (!selectedFaculty) return;
 
     try {
-      const res = await fetch(`/api/users/${selectedFaculty.id}`, { method: 'DELETE' });
-      const data = await safeJson<{ error?: string }>(res);
-      if (data && !data.error) {
-        toast.success('Faculty deleted successfully');
-        setDeleteDialogOpen(false);
-        // Optimistic update: remove from local state
-        setFaculty(prev => prev.filter(u => u.id !== selectedFaculty.id));
-        setSelectedFaculty(null);
-      } else {
-        toast.error(data?.error || 'Delete failed');
-      }
+      await deleteUser.mutateAsync(selectedFaculty.id);
+      toast.success('Faculty deleted successfully');
+      setDeleteDialogOpen(false);
+      setSelectedFaculty(null);
     } catch {
       toast.error('Delete failed');
     }
@@ -307,7 +266,7 @@ export function FacultyView() {
         const isOverloaded = load > maxUnits;
 
         return (
-          <div className="w-32 min-w-[100px]">
+          <div className="w-32 min-w-25">
             <div className="flex justify-between text-xs mb-1">
               <span>{load}/{maxUnits} units</span>
               <span className={isOverloaded ? 'text-red-500' : ''}>{percentage}%</span>
@@ -435,7 +394,7 @@ export function FacultyView() {
                     onClick={() => handleViewSchedule(user)}
                     className="flex items-center gap-3 flex-1 hover:opacity-80 transition-opacity cursor-pointer text-left"
                   >
-                    <Avatar className="h-10 w-10 flex-shrink-0">
+                    <Avatar className="h-10 w-10 shrink-0">
                       <AvatarImage src={user.image || ''} />
                       <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
@@ -623,7 +582,7 @@ export function FacultyView() {
       {/* Schedule View Dialog — Calendar Styling */}
       <Dialog open={scheduleViewOpen} onOpenChange={setScheduleViewOpen}>
         <DialogContent
-          className="!p-0 !gap-0 !overflow-visible !rounded-lg sm:!rounded-2xl !border-0 !shadow-lg dark:!shadow-lg w-[95vw] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col"
+          className="p-0! gap-0! overflow-visible! rounded-lg! sm:rounded-2xl! border-0! shadow-lg! dark:shadow-lg! w-[95vw] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col"
           showCloseButton={false}
         >
           {selectedFaculty && (
@@ -655,131 +614,182 @@ export function FacultyView() {
               </div>
 
               {/* ── Body ──────────────────────────────────────────────────── */}
-              <div className="px-3 sm:px-5 py-3 sm:py-4 space-y-2.5 sm:space-y-3.5 overflow-y-auto flex-1 bg-white dark:bg-[#393E46] transition-colors duration-300">
-                {schedules.filter((s) => s.facultyId === selectedFaculty.id).length > 0 ? (
-                  <>
-                    {/* Schedule list */}
-                    <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-                      {schedules
-                        .filter((s) => s.facultyId === selectedFaculty.id)
-                        .sort((a, b) => {
-                          const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                          const dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
-                          if (dayDiff !== 0) return dayDiff;
-                          return a.startTime.localeCompare(b.startTime);
-                        })
-                        .map((schedule) => (
-                          <motion.div
-                            key={schedule.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                            whileHover={{ scale: 1.02 }}
-                            className="flex flex-col rounded-3xl p-4 sm:p-5 bg-white dark:bg-[#3a3f4a] border border-gray-200/50 dark:border-white/10 transition-all duration-300 hover:shadow-lg"
-                          >
-                            <div className="flex items-start justify-between gap-3 mb-3">
-                              <div className="text-gray-400 dark:text-[#9CA3AF] shrink-0">
-                                <BookOpen className="h-5 sm:h-6 w-5 sm:w-6" />
-                              </div>
-                              <Badge variant="outline" className="shrink-0 text-[9px] sm:text-[10px]">
-                                {schedule.status || 'scheduled'}
-                              </Badge>
-                            </div>
-                            <div className="mb-4">
-                              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-[#8a91a0] uppercase tracking-widest font-semibold">
-                                {schedule.subject?.subjectCode || 'N/A'}
-                              </p>
-                              <p className="text-sm sm:text-base font-bold text-gray-900 dark:text-white mt-1">
-                                {schedule.subject?.name || 'no subject found'}
-                              </p>
-                            </div>
-                            <div className="space-y-2.5 text-[10px] sm:text-xs text-gray-600 dark:text-[#9CA3AF]">
-                              <span className="flex items-center gap-2">
-                                <Calendar className="h-3.5 w-3.5 shrink-0" />
-                                <span>{schedule.day}</span>
-                              </span>
-                              <span className="flex items-center gap-2">
-                                <Clock className="h-3.5 w-3.5 shrink-0" />
-                                <span>{schedule.startTime}–{schedule.endTime}</span>
-                              </span>
-                              <span className="flex items-center gap-2">
-                                <MapPin className="h-3.5 w-3.5 shrink-0" />
-                                <span>{schedule.room?.roomName || 'TBD'}</span>
-                              </span>
-                              <span className="flex items-center gap-2">
-                                <Users className="h-3.5 w-3.5 shrink-0" />
-                                <span>{schedule.section?.sectionName || 'N/A'}</span>
-                              </span>
-                            </div>
-                          </motion.div>
-                        ))}
+              <div className="px-3 sm:px-5 py-3 sm:py-4 overflow-y-auto flex-1 bg-white dark:bg-[#393E46] transition-colors duration-300">
+                {schedulesLoading ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <div className="relative">
+                      <Loader2 className="h-10 w-10 animate-spin text-red-500/60 dark:text-[#EF4444]/60" />
+                      <div className="absolute inset-0 h-10 w-10 animate-pulse rounded-full bg-red-500/5 dark:bg-[#EF4444]/5" />
                     </div>
+                    <p className="text-sm text-muted-foreground mt-4 font-medium">Loading schedule...</p>
+                  </div>
+                ) : (() => {
+                  const facultySchedules = schedules
+                    .filter((s) => s.facultyId === selectedFaculty.id)
+                    .sort((a, b) => {
+                      const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                      const dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+                      if (dayDiff !== 0) return dayDiff;
+                      return a.startTime.localeCompare(b.startTime);
+                    });
 
-                    {/* Summary Stats */}
-                    <div className="mt-4 pt-4 border-t border-gray-200/40 dark:border-white/5">
-                      <div className="grid grid-cols-3 gap-3">
-                        <motion.div whileHover={{ scale: 1.02 }} className="rounded-3xl p-4 sm:p-5 bg-white dark:bg-[#3a3f4a] border border-gray-200/50 dark:border-white/10 transition-all duration-300 hover:shadow-lg">
-                          <div className="flex items-start gap-2 sm:gap-3">
-                            <div className="text-gray-400 dark:text-[#9CA3AF] mt-0.5 shrink-0">
-                              <BookOpen className="h-5 sm:h-6 w-5 sm:w-6" />
+                  if (facultySchedules.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-16">
+                        <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mb-4">
+                          <Calendar className="h-8 w-8 text-red-400 dark:text-red-400/60" />
+                        </div>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">No schedule assignments</p>
+                        <p className="text-xs text-muted-foreground mt-1 text-center max-w-50">
+                          This faculty member has no class schedules assigned yet.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  // Group schedules by day
+                  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                  const groupedByDay: Record<string, typeof facultySchedules> = {};
+                  facultySchedules.forEach(s => {
+                    if (!groupedByDay[s.day]) groupedByDay[s.day] = [];
+                    groupedByDay[s.day].push(s);
+                  });
+
+                  const totalUnits = facultySchedules.reduce((sum, s) => sum + (s.subject?.units || 0), 0);
+                  const maxUnits = selectedFaculty.maxUnits || 24;
+                  const loadPercent = Math.round((totalUnits / maxUnits) * 100);
+                  const isOverloaded = totalUnits > maxUnits;
+
+                  const getStatusColor = (status?: string) => {
+                    switch (status) {
+                      case 'approved': return 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-500/20';
+                      case 'generated': return 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400 border-blue-200/50 dark:border-blue-500/20';
+                      case 'conflict': return 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400 border-amber-200/50 dark:border-amber-500/20';
+                      case 'modified': return 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400 border-purple-200/50 dark:border-purple-500/20';
+                      default: return 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400 border-gray-200 dark:border-white/10';
+                    }
+                  };
+
+                  return (
+                    <div className="space-y-5">
+                      {/* ── Day-grouped schedule list ── */}
+                      {dayOrder.filter(d => groupedByDay[d]).map(day => (
+                        <div key={day}>
+                          <div className="flex items-center gap-2.5 mb-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-red-500 dark:bg-[#EF4444]" />
+                              <h3 className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{day}</h3>
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-[#8a91a0] uppercase tracking-widest font-semibold">Classes</p>
-                              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mt-1">
-                                {schedules.filter((s) => s.facultyId === selectedFaculty.id).length}
-                              </p>
+                            <div className="h-px flex-1 bg-linear-to-r from-gray-200/60 to-transparent dark:from-white/10" />
+                            <span className="text-[10px] font-medium text-muted-foreground/70">{groupedByDay[day].length} class{groupedByDay[day].length > 1 ? 'es' : ''}</span>
+                          </div>
+                          <div className="space-y-2">
+                            {groupedByDay[day].map((schedule, idx) => (
+                              <motion.div
+                                key={schedule.id}
+                                initial={{ opacity: 0, x: -8 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.03, type: 'spring', stiffness: 300, damping: 30 }}
+                                className="group relative flex items-stretch gap-0 bg-white dark:bg-[#3a3f4a] rounded-xl border border-gray-100 dark:border-white/6 hover:shadow-md hover:border-gray-200 dark:hover:border-white/12 transition-all duration-200"
+                              >
+                                {/* Time indicator bar */}
+                                <div className="w-1.5 shrink-0 rounded-l-xl bg-linear-to-b from-red-500 to-red-600 dark:from-[#EF4444] dark:to-[#DC2626]" />
+
+                                <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2.5 p-3 sm:p-3.5 min-w-0">
+                                  {/* Time block */}
+                                  <div className="flex sm:flex-col items-baseline sm:items-start gap-1.5 sm:gap-0 sm:min-w-20 shrink-0">
+                                    <span className="text-xs font-bold text-gray-900 dark:text-white tabular-nums">{schedule.startTime}</span>
+                                    <span className="text-[10px] text-muted-foreground/60 sm:text-[9px]">–</span>
+                                    <span className="text-xs font-bold text-gray-900 dark:text-white tabular-nums">{schedule.endTime}</span>
+                                  </div>
+
+                                  {/* Divider */}
+                                  <div className="hidden sm:block w-px h-8 bg-gray-100 dark:bg-white/6" />
+
+                                  {/* Subject info */}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider truncate">
+                                      {schedule.subject?.subjectCode || 'N/A'}
+                                    </p>
+                                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                      {schedule.subject?.subjectName || schedule.subject?.name || 'No subject found'}
+                                    </p>
+                                  </div>
+
+                                  {/* Meta info row */}
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground shrink-0">
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      {schedule.room?.roomName || 'TBD'}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Users className="h-3 w-3" />
+                                      {schedule.section?.sectionName || 'N/A'}
+                                    </span>
+                                    <span className={cn(
+                                      'inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold border',
+                                      getStatusColor(schedule.status)
+                                    )}>
+                                      {schedule.status || 'scheduled'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* ── Summary Stats ── */}
+                      <div className="pt-4 border-t border-gray-200/40 dark:border-white/6">
+                        <div className="grid grid-cols-3 gap-2.5">
+                          {/* Classes count */}
+                          <div className="rounded-xl p-3 sm:p-3.5 bg-gray-50/80 dark:bg-white/3 border border-gray-100/50 dark:border-white/6">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <BookOpen className="h-3.5 w-3.5 text-red-500/70 dark:text-red-400/70" />
+                              <span className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-wider">Classes</span>
+                            </div>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">{facultySchedules.length}</p>
+                          </div>
+
+                          {/* Units */}
+                          <div className="rounded-xl p-3 sm:p-3.5 bg-gray-50/80 dark:bg-white/3 border border-gray-100/50 dark:border-white/6">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <Layers className="h-3.5 w-3.5 text-red-500/70 dark:text-red-400/70" />
+                              <span className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-wider">Units</span>
+                            </div>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                              {totalUnits}<span className="text-sm font-medium text-muted-foreground">/{maxUnits}</span>
+                            </p>
+                          </div>
+
+                          {/* Load percentage with progress */}
+                          <div className="rounded-xl p-3 sm:p-3.5 bg-gray-50/80 dark:bg-white/3 border border-gray-100/50 dark:border-white/6">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <Eye className="h-3.5 w-3.5 text-red-500/70 dark:text-red-400/70" />
+                              <span className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-wider">Load</span>
+                            </div>
+                            <p className={cn(
+                              'text-lg font-bold',
+                              isOverloaded ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
+                            )}>
+                              {loadPercent}%
+                            </p>
+                            <div className="mt-1.5 h-1 rounded-full bg-gray-200 dark:bg-white/8 overflow-hidden">
+                              <div
+                                className={cn(
+                                  'h-full rounded-full transition-all duration-500',
+                                  isOverloaded ? 'bg-red-500' : loadPercent > 80 ? 'bg-amber-500' : 'bg-emerald-500'
+                                )}
+                                style={{ width: `${Math.min(loadPercent, 100)}%` }}
+                              />
                             </div>
                           </div>
-                        </motion.div>
-                        <motion.div whileHover={{ scale: 1.02 }} className="rounded-3xl p-4 sm:p-5 bg-white dark:bg-[#3a3f4a] border border-gray-200/50 dark:border-white/10 transition-all duration-300 hover:shadow-lg">
-                          <div className="flex items-start gap-2 sm:gap-3">
-                            <div className="text-gray-400 dark:text-[#9CA3AF] mt-0.5 shrink-0">
-                              <Layers className="h-5 sm:h-6 w-5 sm:w-6" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-[#8a91a0] uppercase tracking-widest font-semibold">Units</p>
-                              <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mt-1">
-                                {schedules
-                                  .filter((s) => s.facultyId === selectedFaculty.id)
-                                  .reduce((sum, s) => sum + (s.subject?.units || 0), 0)} / {selectedFaculty.maxUnits || 24}
-                              </p>
-                            </div>
-                          </div>
-                        </motion.div>
-                        <motion.div whileHover={{ scale: 1.02 }} className="rounded-3xl p-4 sm:p-5 bg-white dark:bg-[#3a3f4a] border border-gray-200/50 dark:border-white/10 transition-all duration-300 hover:shadow-lg">
-                          <div className="flex items-start gap-2 sm:gap-3">
-                            <div className="text-gray-400 dark:text-[#9CA3AF] mt-0.5 shrink-0">
-                              <Eye className="h-5 sm:h-6 w-5 sm:w-6" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-[#8a91a0] uppercase tracking-widest font-semibold">Load</p>
-                              <p className={`text-lg sm:text-xl font-bold mt-1 ${
-                                (schedules
-                                  .filter((s) => s.facultyId === selectedFaculty.id)
-                                  .reduce((sum, s) => sum + (s.subject?.units || 0), 0)) > (selectedFaculty.maxUnits || 24)
-                                  ? 'text-red-600 dark:text-red-400'
-                                  : 'text-gray-900 dark:text-white'
-                              }`}>
-                                {Math.round(
-                                  (schedules
-                                    .filter((s) => s.facultyId === selectedFaculty.id)
-                                    .reduce((sum, s) => sum + (s.subject?.units || 0), 0) / (selectedFaculty.maxUnits || 24)) * 100
-                                )}%
-                              </p>
-                            </div>
-                          </div>
-                        </motion.div>
+                        </div>
                       </div>
                     </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-6">
-                    <Calendar className="h-8 w-8 text-muted-foreground/50 mb-2" />
-                    <p className="text-xs sm:text-sm text-muted-foreground text-center">
-                      No schedule assignments found
-                    </p>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* ── Footer ────────────────────────────────────────────────── */}

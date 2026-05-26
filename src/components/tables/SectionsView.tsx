@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useSections, useDepartments, useCreateSection, useUpdateSection, useDeleteSection } from '@/hooks/queries';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store';
 import { ColumnDef } from '@tanstack/react-table';
@@ -37,7 +37,6 @@ import { toast } from 'sonner';
 import { Plus, MoreHorizontal, Pencil, Trash2, GraduationCap, Users, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Section, Department } from '@/types';
-import { safeJson } from '@/lib/utils';
 
 export function SectionsView() {
   const { data: session } = useSession();
@@ -45,30 +44,12 @@ export function SectionsView() {
 
   const isDeptHead = session?.user?.role === 'department_head';
   const deptHeadDepartmentId = isDeptHead ? session?.user?.departmentId : null;
-  const sectionsKey = isDeptHead && deptHeadDepartmentId
-    ? `sections:dept:${deptHeadDepartmentId}`
-    : 'sections:all';
-  const sectionsUrl = isDeptHead && deptHeadDepartmentId
-    ? `/api/sections?departmentId=${deptHeadDepartmentId}`
-    : '/api/sections';
 
-  const { data: sections = [], isLoading: sectionsLoading, mutate: refetchSections } = useCachedQuery<Section[]>(
-    sectionsKey,
-    async (signal) => {
-      const res = await fetch(sectionsUrl, { signal });
-      const data = await safeJson<Section[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: departments = [], isLoading: deptsLoading, mutate: refetchDepartments } = useCachedQuery<Department[]>(
-    'departments:all',
-    async (signal) => {
-      const res = await fetch('/api/departments', { signal });
-      const data = await safeJson<Department[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
+  const { data: sections = [], isLoading: sectionsLoading } = useSections(deptHeadDepartmentId);
+  const { data: departments = [], isLoading: deptsLoading } = useDepartments();
+  const createSection = useCreateSection();
+  const updateSection = useUpdateSection();
+  const deleteSection = useDeleteSection();
 
   const loading = sectionsLoading || deptsLoading;
 
@@ -147,25 +128,16 @@ export function SectionsView() {
 
     setSaving(true);
     try {
-      const url = selectedSection ? `/api/sections/${selectedSection.id}` : '/api/sections';
-      const method = selectedSection ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await safeJson<{ error?: string; id?: string } & Record<string, unknown>>(res);
-      if (data && !('error' in data)) {
-        toast.success(selectedSection ? 'Section updated' : 'Section created');
-        setDialogOpen(false);
-        refetchSections();
+      if (selectedSection) {
+        await updateSection.mutateAsync({ id: selectedSection.id, ...formData } as any);
+        toast.success('Section updated');
       } else {
-        toast.error('Operation failed');
+        await createSection.mutateAsync(formData as any);
+        toast.success('Section created');
       }
-    } catch {
-      toast.error('Operation failed');
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Operation failed');
     } finally {
       setSaving(false);
     }
@@ -175,18 +147,12 @@ export function SectionsView() {
     if (!selectedSection) return;
 
     try {
-      const res = await fetch(`/api/sections/${selectedSection.id}`, { method: 'DELETE' });
-      const data = await safeJson<{ error?: string }>(res);
-      if (data && !data.error) {
-        toast.success('Section deleted');
-        setDeleteDialogOpen(false);
-        setSelectedSection(null);
-        refetchSections();
-      } else {
-        toast.error(data?.error || 'Delete failed');
-      }
-    } catch {
-      toast.error('Delete failed');
+      await deleteSection.mutateAsync(selectedSection.id);
+      toast.success('Section deleted');
+      setDeleteDialogOpen(false);
+      setSelectedSection(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Delete failed');
     }
   };
 

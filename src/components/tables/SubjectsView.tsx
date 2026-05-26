@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCachedQuery } from '@/hooks/use-cached-query';
+import { useSubjects, useDepartments, useCreateSubject, useUpdateSubject, useDeleteSubject } from '@/hooks/queries';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store';
 import { ColumnDef } from '@tanstack/react-table';
@@ -38,7 +38,6 @@ import { toast } from 'sonner';
 import { Plus, MoreHorizontal, Pencil, Trash2, BookOpen, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Subject, Department } from '@/types';
-import { safeJson } from '@/lib/utils';
 
 export function SubjectsView() {
   const { data: session } = useSession();
@@ -46,30 +45,12 @@ export function SubjectsView() {
 
   const isDeptHead = session?.user?.role === 'department_head';
   const deptHeadDepartmentId = isDeptHead ? session?.user?.departmentId : null;
-  const subjectsKey = isDeptHead && deptHeadDepartmentId
-    ? `subjects:dept:${deptHeadDepartmentId}`
-    : 'subjects:all';
-  const subjectsUrl = isDeptHead && deptHeadDepartmentId
-    ? `/api/subjects?departmentId=${deptHeadDepartmentId}`
-    : '/api/subjects';
 
-  const { data: subjects = [], isLoading: subjectsLoading, mutate: refetchSubjects } = useCachedQuery<Subject[]>(
-    subjectsKey,
-    async (signal) => {
-      const res = await fetch(subjectsUrl, { signal });
-      const data = await safeJson<Subject[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
-
-  const { data: departments = [], isLoading: deptsLoading, mutate: refetchDepartments } = useCachedQuery<Department[]>(
-    'departments:all',
-    async (signal) => {
-      const res = await fetch('/api/departments', { signal });
-      const data = await safeJson<Department[]>(res);
-      return Array.isArray(data) ? data : [];
-    }
-  );
+  const { data: subjects = [], isLoading: subjectsLoading } = useSubjects(deptHeadDepartmentId);
+  const { data: departments = [], isLoading: deptsLoading } = useDepartments();
+  const createSubject = useCreateSubject();
+  const updateSubject = useUpdateSubject();
+  const deleteSubject = useDeleteSubject();
 
   const loading = subjectsLoading || deptsLoading;
 
@@ -152,25 +133,16 @@ export function SubjectsView() {
 
     setSaving(true);
     try {
-      const url = selectedSubject ? `/api/subjects/${selectedSubject.id}` : '/api/subjects';
-      const method = selectedSubject ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await safeJson<{ error?: string; subject?: Subject }>(res);
-      if (data) {
-        toast.success(selectedSubject ? 'Subject updated' : 'Subject created');
-        setDialogOpen(false);
-        refetchSubjects();
+      if (selectedSubject) {
+        await updateSubject.mutateAsync({ id: selectedSubject.id, ...formData } as any);
+        toast.success('Subject updated');
       } else {
-        toast.error('Operation failed');
+        await createSubject.mutateAsync(formData as any);
+        toast.success('Subject created');
       }
-    } catch {
-      toast.error('Operation failed');
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Operation failed');
     } finally {
       setSaving(false);
     }
@@ -180,18 +152,12 @@ export function SubjectsView() {
     if (!selectedSubject) return;
 
     try {
-      const res = await fetch(`/api/subjects/${selectedSubject.id}`, { method: 'DELETE' });
-      const data = await safeJson<{ error?: string }>(res);
-      if (data) {
-        toast.success('Subject deleted');
-        setDeleteDialogOpen(false);
-        setSelectedSubject(null);
-        refetchSubjects();
-      } else {
-        toast.error('Delete failed');
-      }
-    } catch {
-      toast.error('Delete failed');
+      await deleteSubject.mutateAsync(selectedSubject.id);
+      toast.success('Subject deleted');
+      setDeleteDialogOpen(false);
+      setSelectedSubject(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Delete failed');
     }
   };
 
